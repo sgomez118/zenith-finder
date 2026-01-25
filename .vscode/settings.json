@@ -1,0 +1,17 @@
+{
+    "terminal.integrated.profiles.windows": {
+        "Developer PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell",
+            "args": [
+                "-WorkingDirectory",
+                "${workspaceFolder}",
+                "-NoExit",
+                "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/Tools/Launch-VsDevShell.ps1",
+                "-Arch",
+                "amd64",
+                "-SkipAutomaticLocation"
+            ]
+        }
+    }
+}
