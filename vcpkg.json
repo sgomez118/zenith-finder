@@ -1,5 +1,7 @@
 {
   "dependencies": [
-    "supernovas"
+    "supernovas",
+    "cli11",
+    "catch2"
   ]
 }
