@@ -13,5 +13,7 @@
                 "-SkipAutomaticLocation"
             ]
         }
-    }
+    },
+    "editor.formatOnSave": true,
+    "C_Cpp.clang_format_style": "file"
 }

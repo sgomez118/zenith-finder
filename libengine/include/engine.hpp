@@ -1,9 +1,11 @@
-#pragma once
+#ifndef LIBENGINE_INCLUDE_ENGINE_HPP_
+#define LIBENGINE_INCLUDE_ENGINE_HPP_
 
+#include <array>
+#include <chrono>
+#include <string>
 #include <string_view>
 #include <vector>
-#include <string>
-#include <array>
 
 namespace engine {
 
@@ -28,7 +30,7 @@ struct Observer {
 };
 
 // The 50 brightest stars catalog
-constexpr std::array<Star, 50> StarCatalog = {{
+constexpr std::array<Star, 50> kStarCatalog = {{
     {"Sirius", 101.287, -16.716},
     {"Canopus", 95.988, -52.696},
     {"Rigil Kentaurus", 219.902, -60.833},
@@ -81,11 +83,11 @@ constexpr std::array<Star, 50> StarCatalog = {{
     {"Diphda", 10.897, -17.986}
 }};
 
-#include <chrono>
-
 class AstrometryEngine {
 public:
-    static std::vector<CelestialResult> calculate_zenith_proximity(const Observer& obs, std::chrono::system_clock::time_point time = std::chrono::system_clock::now());
+    static std::vector<CelestialResult> CalculateZenithProximity(const Observer& obs, std::chrono::system_clock::time_point time = std::chrono::system_clock::now());
 };
 
 } // namespace engine
+
+#endif // LIBENGINE_INCLUDE_ENGINE_HPP_

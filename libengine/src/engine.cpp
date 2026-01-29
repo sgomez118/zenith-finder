@@ -11,7 +11,7 @@ extern "C" {
 namespace engine {
 
 // Helper to convert C++20 chrono time to Julian Date using NOVAS
-double get_julian_date(std::chrono::system_clock::time_point tp) {
+double GetJulianDate(std::chrono::system_clock::time_point tp) {
     auto sd = std::chrono::floor<std::chrono::days>(tp);
     auto time = tp - sd;
     
@@ -25,14 +25,14 @@ double get_julian_date(std::chrono::system_clock::time_point tp) {
     return julian_date((short)year, (short)month, (short)day, hour);
 }
 
-std::vector<CelestialResult> AstrometryEngine::calculate_zenith_proximity(const Observer& obs, std::chrono::system_clock::time_point time) {
+std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(const Observer& obs, std::chrono::system_clock::time_point time) {
     // Use built-in low-precision ephemeris for Earth/Sun
     set_planet_provider(earth_sun_calc);
     set_planet_provider_hp(earth_sun_calc_hp);
     
     std::vector<CelestialResult> results;
     
-    double jd_utc = get_julian_date(time);
+    double jd_utc = GetJulianDate(time);
     
     // For simplicity in v0.1, we'll use delta_t = 69.184 (approximate for 2024-2026)
     double delta_t = 69.184;
@@ -44,7 +44,7 @@ std::vector<CelestialResult> AstrometryEngine::calculate_zenith_proximity(const 
     observer novas_obs;
     make_observer_at_site(&site, &novas_obs);
 
-    for (const auto& star : StarCatalog) {
+    for (const auto& star : kStarCatalog) {
         cat_entry star_cat;
         make_cat_entry(star.name.data(), "J2000", 0, star.ra / 15.0, star.dec, 0, 0, 0, 0, &star_cat);
 

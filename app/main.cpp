@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     std::cout << std::format("{:<20} | {:>10} | {:>10} | {:>10} | {:<10}\n", "Star Name", "Elevation", "Azimuth", "Zenith Dist", "Status");
     std::cout << "----------------------------------------------------------------------\n";
 
-    auto results = engine::AstrometryEngine::calculate_zenith_proximity(obs);
+    auto results = engine::AstrometryEngine::CalculateZenithProximity(obs);
 
     for (const auto& res : results) {
         std::string status = res.is_rising ? "[RISING]" : "[SETTING]";

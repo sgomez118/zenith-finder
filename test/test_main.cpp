@@ -18,7 +18,7 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
     auto now = std::chrono::system_clock::now();
     
     SECTION("Returns stars for valid input") {
-        auto results = AstrometryEngine::calculate_zenith_proximity(obs, now);
+        auto results = AstrometryEngine::CalculateZenithProximity(obs, now);
         
         // At any given time, *some* stars from the 50 brightest should be above the horizon 
         // unless the catalog is very small or the location/time is extremely specific (unlikely).

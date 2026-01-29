@@ -37,7 +37,7 @@ We utilize the `<chrono>` library to capture system time and convert it to the f
 
 ### 3.2 Key Components
 * **ArgParser**: Handles command-line inputs (`--lat`, `--lon`).
-* **StarCatalog**: A `constexpr std::array` storing the J2000 RA/Dec for the 50 brightest stars.
+* **kStarCatalog**: A `constexpr std::array` storing the J2000 RA/Dec for the 50 brightest stars.
 * **AstrometryEngine**: A C++ wrapper for the Supernovas C-API functions (`app_star`, `topo_presys`).
 * **TableFormatter**: Uses `std::format` to generate aligned, human-readable CLI tables.
 
