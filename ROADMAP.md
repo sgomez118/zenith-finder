@@ -45,6 +45,22 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 ---
 
+## 🪐 Phase 0.4: Solar System Integration (Planets & Moon)
+**Goal:** Track non-static bodies within the solar system.
+* **Ephemeris Implementation:** Utilize Supernovas' built-in solar system functions (e.g., `solarsystem()` or `ephem_open`) to calculate the apparent positions of the Sun, Moon, and planets.
+* **Light-Time Correction:** Implement corrections for the time it takes light to travel from planets to the observer.
+* **Planetary Phase Data:** Add "Illumination Percentage" to the CLI for the Moon and planets.
+
+---
+
+## 📡 Phase 0.5: Low Earth Orbit (LEO) Tracking
+**Goal:** Real-time tracking of satellites and the International Space Station (ISS).
+* **TLE Integration:** Support for **Two-Line Element (TLE)** sets via SGP4 (Simplified General Perturbations) algorithms.
+* **High-Velocity Logic:** Optimize the refresh loop for high-speed objects that cross the zenith in minutes rather than hours.
+* **Pass Prediction:** Implement a "Next Pass" calculator to notify users when a specific satellite will reach its local zenith.
+
+---
+
 ## 🛠️ Technical Standards
 * **Language:** C++20 (utilizing `std::format`, `std::numbers`, and `<chrono>`).
 * **Standards Compliance:** Strictly follow IAU-76/80 and IAU-2000/2006 models via Supernovas.
