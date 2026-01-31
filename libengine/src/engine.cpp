@@ -1,7 +1,5 @@
 #include <chrono>
 #include <algorithm>
-#include <cmath>
-#include <iostream>
 #include "engine.hpp"
 
 extern "C" {
@@ -41,19 +39,16 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(const Ob
     on_surface site;
     make_on_surface(obs.latitude, obs.longitude, obs.altitude, 10.0, 1010.0, &site);
     
-    observer novas_obs;
-    make_observer_at_site(&site, &novas_obs);
-
     for (const auto& star : catalog) {
         cat_entry star_cat;
         make_cat_entry(star.name.data(), "J2000", 0, star.ra / 15.0, star.dec, 0, 0, 0, 0, &star_cat);
 
-        sky_pos topo_pos;
-        int error = place_star(jd_tt, &star_cat, &novas_obs, delta_t, NOVAS_TOD, NOVAS_REDUCED_ACCURACY, &topo_pos);
+        double ra, dec;
+        int error = topo_star(jd_tt, delta_t, &star_cat, &site, NOVAS_REDUCED_ACCURACY, &ra, &dec);
 
         if (error == 0) {
             double zd, az, rar, decr;
-            equ2hor(jd_utc, delta_t, NOVAS_REDUCED_ACCURACY, 0.0, 0.0, &site, topo_pos.ra, topo_pos.dec, NOVAS_WEATHER_AT_LOCATION, &zd, &az, &rar, &decr);
+            equ2hor(jd_utc, delta_t, NOVAS_REDUCED_ACCURACY, 0.0, 0.0, &site, ra, dec, NOVAS_WEATHER_AT_LOCATION, &zd, &az, &rar, &decr);
 
             double el = 90.0 - zd;
             if (el > 0) { // Only objects above the horizon
@@ -70,6 +65,64 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(const Ob
 
     // Sort by zenith distance (ascending)
     std::sort(results.begin(), results.end(), [](const CelestialResult& a, const CelestialResult& b) {
+        return a.zenith_dist < b.zenith_dist;
+    });
+
+    return results;
+}
+
+std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(const Observer& obs, std::chrono::system_clock::time_point time) {
+    // Use built-in low-precision ephemeris for Earth/Sun
+    set_planet_provider(earth_sun_calc);
+    set_planet_provider_hp(earth_sun_calc_hp);
+    
+    std::vector<SolarBody> results;
+    
+    double jd_utc = GetJulianDate(time);
+    double delta_t = 69.184; // Approx for 2026
+    double jd_tt = jd_utc + delta_t / 86400.0;
+    
+    on_surface site;
+    make_on_surface(obs.latitude, obs.longitude, obs.altitude, 10.0, 1010.0, &site);
+    
+    struct BodyDef {
+        std::string name;
+        short id;
+    };
+
+    std::vector<BodyDef> bodies = {
+        {"Sun", 10}, {"Moon", 11},
+        {"Mercury", 1}, {"Venus", 2}, {"Mars", 4},
+        {"Jupiter", 5}, {"Saturn", 6}, {"Uranus", 7}, {"Neptune", 8}
+    };
+
+    for (const auto& body : bodies) {
+        object obj;
+        make_object(NOVAS_PLANET, body.id, const_cast<char*>(body.name.c_str()), nullptr, &obj);
+
+        double ra, dec, dis;
+        int error = topo_planet(jd_tt, &obj, delta_t, &site, NOVAS_REDUCED_ACCURACY, &ra, &dec, &dis);
+
+        if (error == 0) {
+            double zd, az, rar, decr;
+            equ2hor(jd_utc, delta_t, NOVAS_REDUCED_ACCURACY, 0.0, 0.0, &site, ra, dec, NOVAS_WEATHER_AT_LOCATION, &zd, &az, &rar, &decr);
+
+            double el = 90.0 - zd;
+            if (el > -18.0) { // Keep slightly below horizon for "approaching" visibility (twilight)
+                SolarBody res;
+                res.name = body.name;
+                res.azimuth = az;
+                res.elevation = el;
+                res.zenith_dist = zd;
+                res.distance_au = dis;
+                res.is_rising = (az < 180.0);
+                results.push_back(res);
+            }
+        }
+    }
+
+    // Sort by zenith distance
+    std::sort(results.begin(), results.end(), [](const SolarBody& a, const SolarBody& b) {
         return a.zenith_dist < b.zenith_dist;
     });
 

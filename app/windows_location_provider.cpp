@@ -1,5 +1,4 @@
 #include "windows_location_provider.hpp"
-#include <iostream>
 
 #pragma comment(lib, "locationapi.lib")
 
