@@ -1,0 +1,13 @@
+# Zenith Finder Configuration
+
+[observer]
+latitude = 51.5074   # Default: London
+longitude = -0.1278
+altitude = 0.0
+
+[catalog]
+path = "stars.csv"
+
+[ui]
+theme = "default"    # Future use: default, dark, light
+refresh_rate_ms = 1000

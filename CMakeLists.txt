@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # vcpkg usually exposes them. Trying find_package first, falling back to library search.
 find_package(supernovas CONFIG REQUIRED)
 find_package(CLI11 CONFIG REQUIRED)
+find_package(ftxui CONFIG REQUIRED)
+find_package(tomlplusplus CONFIG REQUIRED)
 find_package(Catch2 3 CONFIG REQUIRED)
 
 enable_testing()

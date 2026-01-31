@@ -35,21 +35,22 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 ---
 
-## 🖥️ Phase 0.3: Graphical Interface (Qt Integration)
-**Goal:** Transform the utility into a full-featured desktop application.
+## 🪐 Phase 0.3: Solar System & TUI Integration (Planned)
+**Goal:** Expand core tracking to the Solar System and upgrade to a robust TUI.
 
-* **Qt Framework:** Migrate from CLI to a C++/Qt-based GUI.
-* **Zenith Radar Display:** A circular 2D sky map with the zenith at the center.
-* **Visual Filtering:** Interactive tools to filter celestial bodies by magnitude, constellation, or altitude.
-* **Location Profiles:** Save and manage multiple observer coordinate profiles.
+* **TUI Framework:** Integrate **FTXUI** for a responsive, dashboard-style terminal interface.
+* **Solar System:** Implement tracking for the **Sun, Moon, and Planets** (Mercury through Neptune).
+* **Interactive Tables:** Scrollable lists for Stars and Solar System bodies.
+* **Configuration:** Load default observer location and settings from `config.toml`.
 
 ---
 
-## 🪐 Phase 0.4: Solar System Integration (Planets & Moon)
-**Goal:** Track non-static bodies within the solar system.
-* **Ephemeris Implementation:** Utilize Supernovas' built-in solar system functions (e.g., `solarsystem()` or `ephem_open`) to calculate the apparent positions of the Sun, Moon, and planets.
-* **Light-Time Correction:** Implement corrections for the time it takes light to travel from planets to the observer.
-* **Planetary Phase Data:** Add "Illumination Percentage" to the CLI for the Moon and planets.
+## 🖥️ Phase 0.4: Advanced Features & GUI (Future)
+**Goal:** Graphical Interface and Advanced Filtering.
+
+* **Qt Framework:** Migrate to a full C++/Qt desktop application.
+* **Visual Filtering:** Tools to filter by constellation or magnitude.
+* **Zenith Radar:** 2D visualization of the sky.
 
 ---
 

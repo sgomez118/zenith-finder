@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "catalog_loader.hpp"
+#include "config_manager.hpp"
 #include "engine.hpp"
 #include "location_provider.hpp"
 #include "logger.hpp"
@@ -35,63 +36,112 @@ std::atomic<bool> g_gps_active{false};
 
 void signal_handler(int) { g_running = false; }
 
-void calculation_worker(std::shared_ptr<app::LocationProvider> provider,
-                        std::vector<engine::Star> catalog,
-                        std::shared_ptr<app::Logger> logger, bool is_gps) {
-  // Initialize COM for Windows Location API
-  HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+void calculation_worker(std::shared_ptr<app::LocationProvider> provider, std::vector<engine::Star> catalog, std::shared_ptr<app::Logger> logger, bool is_gps, int refresh_ms) {
 
-  while (g_running) {
-    auto obs = provider->GetLocation();
-    g_gps_active = is_gps;
+    // Initialize COM for Windows Location API
 
-    {
-      std::lock_guard<std::mutex> lock(g_location_mutex);
-      g_current_location = obs;
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
+    
+
+    while (g_running) {
+
+        auto obs = provider->GetLocation();
+
+        g_gps_active = is_gps; 
+
+        
+
+        {
+
+            std::lock_guard<std::mutex> lock(g_location_mutex);
+
+            g_current_location = obs;
+
+        }
+
+
+
+        auto now = std::chrono::system_clock::now();
+
+        auto results = std::make_shared<std::vector<engine::CelestialResult>>(
+
+            engine::AstrometryEngine::CalculateZenithProximity(obs, catalog, now)
+
+        );
+
+
+
+        if (logger) {
+
+            logger->Log(obs, *results);
+
+        }
+
+
+
+        {
+
+            std::lock_guard<std::mutex> lock(g_results_mutex);
+
+            g_latest_results = results;
+
+            g_last_calc_time = now;
+
+        }
+
+
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(refresh_ms)); 
+
     }
 
-    auto now = std::chrono::system_clock::now();
-    auto results = std::make_shared<std::vector<engine::CelestialResult>>(
-        engine::AstrometryEngine::CalculateZenithProximity(obs, catalog, now));
 
-    if (logger) {
-      logger->Log(obs, *results);
+
+    if (SUCCEEDED(hr)) {
+
+        CoUninitialize();
+
     }
 
-    {
-      std::lock_guard<std::mutex> lock(g_results_mutex);
-      g_latest_results = results;
-      g_last_calc_time = now;
-    }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  }
-
-  if (SUCCEEDED(hr)) {
-    CoUninitialize();
-  }
 }
+
+
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::signal(SIGINT, signal_handler);
 
-  CLI::App app{
-      "Zenith Finder - Identify celestial objects at your local zenith"};
+    std::signal(SIGINT, signal_handler);
 
-  engine::Observer obs{0.0, 0.0, 0.0};
-  bool use_gps = false;
-  bool enable_logging = false;
-  std::string catalog_path = "stars.csv";
 
-  auto lat_opt =
-      app.add_option("--lat", obs.latitude, "Observer latitude (degrees)")
-          ->check(CLI::Range(-90.0, 90.0));
-  auto lon_opt =
-      app.add_option("--lon", obs.longitude, "Observer longitude (degrees)")
-          ->check(CLI::Range(-180.0, 180.0));
-  app.add_option("--alt", obs.altitude, "Observer altitude (meters)")
-      ->default_val(0.0);
+
+    CLI::App app{"Zenith Finder - Identify celestial objects at your local zenith"};
+
+
+
+    // Load Config
+
+    auto config = app::ConfigManager::Load("config.toml");
+
+
+
+    engine::Observer obs = config.observer;
+
+    bool use_gps = false;
+
+    bool enable_logging = false;
+
+    std::string catalog_path = config.catalog_path;
+
+
+
+    auto lat_opt = app.add_option("--lat", obs.latitude, "Observer latitude (degrees)")->check(CLI::Range(-90.0, 90.0));
+
+    auto lon_opt = app.add_option("--lon", obs.longitude, "Observer longitude (degrees)")->check(CLI::Range(-180.0, 180.0));
+
+    app.add_option("--alt", obs.altitude, "Observer altitude (meters)")->default_val(0.0);
+
+
 
   app.add_flag("--gps", use_gps, "Use system GPS location service");
   app.add_option("--catalog", catalog_path, "Path to the star catalog CSV file")
@@ -136,9 +186,11 @@ int main(int argc, char** argv) {
     }
   }
 
-  // Start worker thread
-  std::thread worker(calculation_worker, provider, std::move(catalog), logger,
-                     use_gps);
+      // Start worker thread
+
+      std::thread worker(calculation_worker, provider, std::move(catalog), logger, use_gps, config.refresh_rate_ms / 2);
+
+  
 
   // Clear screen once at start
   std::cout << "\033[2J";
