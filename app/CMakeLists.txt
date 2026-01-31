@@ -15,5 +15,7 @@ target_link_libraries(zenith-finder PRIVATE
 )
 
 if(WIN32)
+
     target_link_libraries(zenith-finder PRIVATE LocationAPI)
+
 endif()

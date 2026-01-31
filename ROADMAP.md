@@ -35,7 +35,7 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 ---
 
-## 🪐 Phase 0.3: Solar System & TUI Integration (Planned)
+## 🪐 Phase 0.3: Solar System & TUI Integration (Completed)
 **Goal:** Expand core tracking to the Solar System and upgrade to a robust TUI.
 
 * **TUI Framework:** Integrate **FTXUI** for a responsive, dashboard-style terminal interface.

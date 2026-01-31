@@ -1,4 +1,5 @@
-#include <objbase.h>  // For CoInitializeEx
+#define NOMINMAX
+#include <objbase.h>
 
 #ifdef _WIN32
 #include <conio.h>
@@ -14,14 +15,21 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <functional>
+
+#include <ftxui/component/component.hpp>
+#include <ftxui/component/screen_interactive.hpp>
+#include <ftxui/dom/elements.hpp>
+#include <ftxui/dom/table.hpp>
 
 #include "catalog_loader.hpp"
 #include "config_manager.hpp"
 #include "engine.hpp"
 #include "location_provider.hpp"
 #include "logger.hpp"
-#include "ui_style.hpp"
 #include "windows_location_provider.hpp"
+
+using namespace ftxui;
 
 namespace {
 std::atomic<bool> g_running{true};
@@ -30,7 +38,6 @@ std::shared_ptr<std::vector<engine::CelestialResult>> g_latest_results;
 std::shared_ptr<std::vector<engine::SolarBody>> g_latest_solar_results;
 std::chrono::system_clock::time_point g_last_calc_time;
 
-// Also store the latest observer location for display
 std::mutex g_location_mutex;
 engine::Observer g_current_location{0.0, 0.0, 0.0};
 std::atomic<bool> g_gps_active{false};
@@ -42,7 +49,7 @@ void signal_handler(int) {
 void calculation_worker(std::shared_ptr<app::LocationProvider> provider,
                         std::vector<engine::Star> catalog,
                         std::shared_ptr<app::Logger> logger, bool is_gps,
-                        int refresh_ms) {
+                        int refresh_ms, std::function<void()> screen_callback) {
     // Initialize COM for Windows Location API
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
@@ -72,6 +79,9 @@ void calculation_worker(std::shared_ptr<app::LocationProvider> provider,
             g_last_calc_time = now;
         }
 
+        // Trigger UI refresh
+        if (screen_callback) screen_callback();
+
         std::this_thread::sleep_for(std::chrono::milliseconds(refresh_ms));
     }
 
@@ -86,7 +96,6 @@ int main(int argc, char** argv) {
 
     CLI::App app{"Zenith Finder - Identify celestial objects at your local zenith"};
 
-    // Load Config
     auto config = app::ConfigManager::Load("config.toml");
 
     engine::Observer obs = config.observer;
@@ -94,19 +103,13 @@ int main(int argc, char** argv) {
     bool enable_logging = false;
     std::string catalog_path = config.catalog_path;
 
-    auto lat_opt = app.add_option("--lat", obs.latitude, "Observer latitude (degrees)")
-                       ->check(CLI::Range(-90.0, 90.0));
-    auto lon_opt = app.add_option("--lon", obs.longitude, "Observer longitude (degrees)")
-                       ->check(CLI::Range(-180.0, 180.0));
-    app.add_option("--alt", obs.altitude, "Observer altitude (meters)")
-        ->default_val(0.0);
-
+    auto lat_opt = app.add_option("--lat", obs.latitude, "Observer latitude (degrees)")->check(CLI::Range(-90.0, 90.0));
+    auto lon_opt = app.add_option("--lon", obs.longitude, "Observer longitude (degrees)")->check(CLI::Range(-180.0, 180.0));
+    app.add_option("--alt", obs.altitude, "Observer altitude (meters)")->default_val(0.0);
     app.add_flag("--gps", use_gps, "Use system GPS location service");
-    app.add_option("--catalog", catalog_path, "Path to the star catalog CSV file")
-        ->check(CLI::ExistingFile);
+    app.add_option("--catalog", catalog_path, "Path to the star catalog CSV file")->check(CLI::ExistingFile);
     app.add_flag("--log", enable_logging, "Enable logging to a timestamped CSV file");
 
-    // Validation: Either GPS or (Lat and Lon) must be provided
     lat_opt->excludes("--gps");
     lon_opt->excludes("--gps");
 
@@ -114,8 +117,7 @@ int main(int argc, char** argv) {
 
     auto catalog = engine::CatalogLoader::LoadFromCSV(catalog_path);
     if (catalog.empty()) {
-        std::cerr << "Error: Could not load catalog from " << catalog_path
-                  << " or file is empty." << std::endl;
+        std::cerr << "Error: Could not load catalog from " << catalog_path << std::endl;
         return 1;
     }
 
@@ -136,153 +138,130 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Start worker thread
-    std::thread worker(calculation_worker, provider, std::move(catalog), logger,
-                       use_gps, config.refresh_rate_ms / 2);
+    // FTXUI Setup
+    auto screen = ScreenInteractive::Fullscreen();
 
-    // Clear screen once at start
-    std::cout << "\033[2J";
-
-    auto next_tick = std::chrono::steady_clock::now();
-
-    while (g_running) {
-        // Handle input
-#ifdef _WIN32
-        if (_kbhit()) {
-            int ch = _getch();
-            if (ch == 'q' || ch == 'Q') {
-                g_running = false;
-            }
-        }
-#endif
-
-        auto now = std::chrono::system_clock::now();
-
-        // Home cursor
-        std::cout << "\033[H";
-
-        // Header info
-        std::cout << app::ui::BG_BLUE << app::ui::WHITE << app::ui::BOLD
-                  << "======================================================================"
-                  << app::ui::RESET << "\n";
-
-        std::cout << app::ui::BG_BLUE << app::ui::WHITE << app::ui::BOLD
-                  << std::format(
-                         " ZENITH FINDER v0.3 | GPS: {:<9} | Log: {:<3}                     ",
-                         (g_gps_active ? "CONNECTED" : "MANUAL"),
-                         (enable_logging ? "ON" : "OFF"))
-                  << app::ui::RESET << "\n";
-
-        std::cout << app::ui::BG_BLUE << app::ui::WHITE << app::ui::BOLD
-                  << "======================================================================"
-                  << app::ui::RESET << "\n";
-
-        engine::Observer current_obs;
+    // UI Components
+    auto renderer = Renderer([&] {
+        // Fetch Data
+        engine::Observer loc;
         {
             std::lock_guard<std::mutex> lock(g_location_mutex);
-            current_obs = g_current_location;
+            loc = g_current_location;
         }
-        std::cout << std::format("{}Location:{} {:.4f}N, {:.4f}E, {:.1f}m             \n",
-                                 app::ui::CYAN, app::ui::RESET,
-                                 current_obs.latitude, current_obs.longitude,
-                                 current_obs.altitude);
 
-        auto now_time_t = std::chrono::system_clock::to_time_t(now);
-        std::tm now_tm;
-#ifdef _WIN32
-        gmtime_s(&now_tm, &now_time_t);
-#else
-        gmtime_r(&now_time_t, &now_tm);
-#endif
-        std::cout << std::format(
-            "{}Time (UTC):{} {:04}-{:02}-{:02} {:02}:{:02}:{:02}\n", app::ui::CYAN,
-            app::ui::RESET, now_tm.tm_year + 1900, now_tm.tm_mon + 1, now_tm.tm_mday,
-            now_tm.tm_hour, now_tm.tm_min, now_tm.tm_sec);
-
-        std::cout << app::ui::DIM
-                  << "----------------------------------------------------------------------"
-                  << app::ui::RESET << "\n";
-        std::cout << std::format("{} {:<20} | {:>10} | {:>10} | {:>10} | {:<10} {}\n",
-                                 app::ui::BOLD, "Object Name", "Elevation", "Azimuth",
-                                 "Zenith Dist", "Status", app::ui::RESET);
-        std::cout << app::ui::DIM
-                  << "----------------------------------------------------------------------"
-                  << app::ui::RESET << "\n";
-
-        std::shared_ptr<std::vector<engine::CelestialResult>> current_results;
-        std::shared_ptr<std::vector<engine::SolarBody>> current_solar;
+        std::shared_ptr<std::vector<engine::CelestialResult>> stars;
+        std::shared_ptr<std::vector<engine::SolarBody>> solar;
+        std::chrono::system_clock::time_point time;
         {
             std::lock_guard<std::mutex> lock(g_results_mutex);
-            current_results = g_latest_results;
-            current_solar = g_latest_solar_results;
+            stars = g_latest_results;
+            solar = g_latest_solar_results;
+            time = g_last_calc_time;
         }
 
-        if (current_solar) {
-            for (const auto& res : *current_solar) {
-                if (res.elevation < -6.0) continue;  // Show if above civil twilight
-                std::string status_color =
-                    res.is_rising ? std::string(app::ui::GREEN) : std::string(app::ui::RED);
-                std::string status_icon =
-                    res.is_rising ? std::string(app::ui::ICON_RISING)
-                                  : std::string(app::ui::ICON_SETTING);
-                std::string status_text = res.is_rising ? "RISING" : "SETTING";
+        // Time Formatting
+        auto time_t = std::chrono::system_clock::to_time_t(time);
+        std::tm tm_now;
+        gmtime_s(&tm_now, &time_t);
+        std::string time_str = std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
+                                           tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
+                                           tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
 
-                std::cout << std::format(
-                    "{:<20} | {:>10.2f} | {:>10.2f} | {:>10.2f} | {}{:<8} {}{}\n",
-                    res.name, res.elevation, res.azimuth, res.zenith_dist, status_color,
-                    status_text, status_icon, app::ui::RESET);
+        // Sidebar Content
+        auto sidebar = vbox({
+            window(text(" Status "), vbox({
+                text(std::format("GPS: {}", g_gps_active ? "Active" : "Manual")) | (g_gps_active ? color(Color::Green) : color(Color::Yellow)),
+                text(std::format("Log: {}", enable_logging ? "On" : "Off")),
+                text("Time: " + time_str),
+            })),
+            window(text(" Location "), vbox({
+                text(std::format("Lat: {:.4f} N", loc.latitude)),
+                text(std::format("Lon: {:.4f} E", loc.longitude)),
+                text(std::format("Alt: {:.1f} m", loc.altitude)),
+            })),
+            filler(),
+            text("Zenith Finder v0.3") | dim | center
+        }) | size(WIDTH, EQUAL, 30);
+
+        // Solar Table
+        std::vector<std::vector<Element>> solar_rows = {
+            {text("Body") | bold, text("Elev") | bold, text("Azimuth") | bold, text("Zenith") | bold, text("Dist (AU)") | bold, text("State") | bold}
+        };
+        if (solar) {
+            for (const auto& body : *solar) {
+                if (body.elevation < -12.0) continue;
+                auto state_color = body.is_rising ? Color::Green : Color::Red;
+                solar_rows.push_back({
+                    text(body.name),
+                    text(std::format("{:.2f}", body.elevation)),
+                    text(std::format("{:.2f}", body.azimuth)),
+                    text(std::format("{:.2f}", body.zenith_dist)),
+                    text(std::format("{:.3f}", body.distance_au)),
+                    text(body.is_rising ? "RISING" : "SETTING") | color(state_color)
+                });
             }
         }
+        auto solar_table = Table(solar_rows);
+        solar_table.SelectAll().Border(LIGHT);
+        solar_table.SelectRow(0).Decorate(bold);
+        solar_table.SelectRow(0).SeparatorVertical(LIGHT);
+        solar_table.SelectRow(0).Border(ftxui::DOUBLE);
 
-        if (current_results) {
-            for (const auto& res : *current_results) {
-                std::string status_color =
-                    res.is_rising ? std::string(app::ui::GREEN) : std::string(app::ui::RED);
-                std::string status_icon =
-                    res.is_rising ? std::string(app::ui::ICON_RISING)
-                                  : std::string(app::ui::ICON_SETTING);
-                std::string status_text = res.is_rising ? "RISING" : "SETTING";
-
-                std::cout << std::format(
-                    "{:<20} | {:>10.2f} | {:>10.2f} | {:>10.2f} | {}{:<8} {}{}\n",
-                    res.name, res.elevation, res.azimuth, res.zenith_dist, status_color,
-                    status_text, status_icon, app::ui::RESET);
+        // Star Table (Top 15)
+        std::vector<std::vector<Element>> star_rows = {
+            {text("Star") | bold, text("Elev") | bold, text("Azimuth") | bold, text("Zenith") | bold, text("State") | bold}
+        };
+        if (stars) {
+            int limit = 0;
+            for (const auto& star : *stars) {
+                if (limit++ > 15) break; 
+                auto state_color = star.is_rising ? Color::Green : Color::Red;
+                star_rows.push_back({
+                    text(star.name),
+                    text(std::format("{:.2f}", star.elevation)),
+                    text(std::format("{:.2f}", star.azimuth)),
+                    text(std::format("{:.2f}", star.zenith_dist)),
+                    text(star.is_rising ? "RISING" : "SETTING") | color(state_color)
+                });
             }
-
-            if (current_results->empty() && (!current_solar || current_solar->empty())) {
-                std::cout << app::ui::YELLOW
-                          << "No objects from the catalog are currently above the horizon.      "
-                             "      "
-                          << app::ui::RESET << "\n";
-            }
-        } else {
-            std::cout << app::ui::YELLOW
-                      << "Calculating...                                                       "
-                         "    "
-                      << app::ui::RESET << "\n";
         }
+        auto star_table = Table(star_rows);
+        star_table.SelectAll().Border(LIGHT);
+        star_table.SelectRow(0).Decorate(bold);
+        star_table.SelectRow(0).SeparatorVertical(LIGHT);
+        star_table.SelectRow(0).Border(ftxui::DOUBLE);
 
-        // Clear remaining lines if any
-        std::cout << "\033[J";
+        // Main Layout
+        return hbox({
+            sidebar,
+            separator(),
+            vbox({
+                window(text(" Solar System "), solar_table.Render()),
+                window(text(" Zenith Stars "), star_table.Render()) | flex
+            }) | flex
+        }) | border;
+    });
 
-        std::cout << "\n" << app::ui::CYAN << "Controls: " << app::ui::RESET << "[Q] Quit\n";
+    auto event_handler = CatchEvent(renderer, [&](Event event) {
+        if (event == Event::Character('q') || event == Event::Character('Q')) {
+            screen.Exit();
+            g_running = false;
+            return true;
+        }
+        return false;
+    });
 
-        next_tick += std::chrono::milliseconds(config.refresh_rate_ms);
-        std::this_thread::sleep_until(next_tick);
-    }
+    // Start worker
+    std::thread worker(calculation_worker, provider, std::move(catalog), logger, use_gps, config.refresh_rate_ms, [&screen] {
+        screen.Post(Event::Custom); // Trigger refresh
+    });
 
-    if (worker.joinable()) {
-        worker.join();
-    }
+    screen.Loop(event_handler);
 
-    if (logger) {
-        logger->Stop();
-    }
-
-    // Save Config on exit (to persist any changes if we had them, though right now it's static)
+    if (worker.joinable()) worker.join();
+    if (logger) logger->Stop();
     app::ConfigManager::Save("config.toml", config);
-
-    std::cout << "\nExiting...\n";
 
     return 0;
 }

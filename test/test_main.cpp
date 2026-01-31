@@ -55,11 +55,24 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
         auto res2 = AstrometryEngine::CalculateZenithProximity(obs, mock_catalog, t2);
         
         if (!res1.empty() && !res2.empty()) {
-            // Earth rotates ~15 degrees per hour, which is 0.00416 degrees per second.
-            // In 10 seconds, stars should shift by approx 0.04 degrees in Azimuth/RA
-            // We just want to ensure they ARE different and moving in the expected direction.
             REQUIRE(res1[0].azimuth != res2[0].azimuth);
         }
+    }
+}
+
+TEST_CASE("Solar System Calculation", "[engine]") {
+    Observer obs{0.0, 0.0, 0.0};
+    auto now = std::chrono::system_clock::now();
+    
+    auto bodies = AstrometryEngine::CalculateSolarSystem(obs, now);
+    
+    // At least the Sun should be returned
+    REQUIRE_FALSE(bodies.empty());
+    
+    for (const auto& body : bodies) {
+        REQUIRE(body.name == "Sun");
+        REQUIRE(body.distance_au > 0.9); // Earth-Sun distance approx 1 AU
+        REQUIRE(body.distance_au < 1.1);
     }
 }
 
