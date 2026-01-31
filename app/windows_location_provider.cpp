@@ -25,8 +25,6 @@ engine::Observer WindowsLocationProvider::GetLocation() {
             IID reportTypes[] = { IID_ILatLongReport };
             hr = pLocation_->RequestPermissions(nullptr, reportTypes, 1, TRUE); 
             initialized_ = true;
-        } else {
-            // std::cerr << "Failed to create ILocation instance: " << std::hex << hr << std::endl;
         }
     }
 
@@ -39,11 +37,9 @@ engine::Observer WindowsLocationProvider::GetLocation() {
             if (SUCCEEDED(hr)) {
                 double lat = 0.0;
                 double lon = 0.0;
-                double alt = 0.0; // Altitude might be in a different report, but let's check LatLong
                 
                 pLatLongReport->GetLatitude(&lat);
                 pLatLongReport->GetLongitude(&lon);
-                // pLatLongReport->GetAltitude(&alt); // LatLongReport doesn't always have altitude, checking error
                 
                 // Update last known
                 last_known_obs_.latitude = lat;
