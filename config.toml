@@ -1,5 +1,3 @@
-# Zenith Finder Configuration
-
 [catalog]
 path = 'stars.csv'
 
@@ -9,5 +7,4 @@ latitude = 51.5074
 longitude = -0.1278
 
 [ui]
-theme = "default"    # Future use: default, dark, light
 refresh_rate_ms = 1000

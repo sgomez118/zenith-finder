@@ -1,29 +1,31 @@
 #ifndef APP_WINDOWS_LOCATION_PROVIDER_HPP_
 #define APP_WINDOWS_LOCATION_PROVIDER_HPP_
 
-#include "location_provider.hpp"
-#include <windows.h>
 #include <LocationAPI.h>
-#include <sensorsapi.h> // Sometimes needed
+#include <comdef.h>
+#include <sensorsapi.h>  // Sometimes needed
+#include <windows.h>
+
 #include <atomic>
 #include <iostream>
-#include <comdef.h>
+
+#include "location_provider.hpp"
 
 namespace app {
 
 class WindowsLocationProvider : public LocationProvider {
-public:
-    WindowsLocationProvider();
-    ~WindowsLocationProvider();
+ public:
+  WindowsLocationProvider();
+  ~WindowsLocationProvider();
 
-    engine::Observer GetLocation() override;
+  engine::Observer GetLocation() override;
 
-private:
-    ILocation* pLocation_ = nullptr;
-    engine::Observer last_known_obs_{0.0, 0.0, 0.0};
-    bool initialized_ = false;
+ private:
+  ILocation* pLocation_ = nullptr;
+  engine::Observer last_known_obs_{0.0, 0.0, 0.0};
+  bool initialized_ = false;
 };
 
-} // namespace app
+}  // namespace app
 
-#endif // APP_WINDOWS_LOCATION_PROVIDER_HPP_
+#endif  // APP_WINDOWS_LOCATION_PROVIDER_HPP_
