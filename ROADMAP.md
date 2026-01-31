@@ -25,7 +25,7 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 ---
 
-## 🛰️ Phase 0.2: Real-time Tracking & Data Expansion
+## 🛰️ Phase 0.2: Real-time Tracking & Data Expansion (Completed)
 **Goal:** Transition from a snapshot tool to a dynamic tracking utility.
 
 * **Dynamic Refresh:** Implement a live-updating terminal loop (e.g., 1Hz refresh rate).

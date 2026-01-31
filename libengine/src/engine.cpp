@@ -25,7 +25,7 @@ double GetJulianDate(std::chrono::system_clock::time_point tp) {
     return julian_date((short)year, (short)month, (short)day, hour);
 }
 
-std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(const Observer& obs, std::chrono::system_clock::time_point time) {
+std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(const Observer& obs, const std::vector<Star>& catalog, std::chrono::system_clock::time_point time) {
     // Use built-in low-precision ephemeris for Earth/Sun
     set_planet_provider(earth_sun_calc);
     set_planet_provider_hp(earth_sun_calc_hp);
@@ -44,7 +44,7 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(const Ob
     observer novas_obs;
     make_observer_at_site(&site, &novas_obs);
 
-    for (const auto& star : kStarCatalog) {
+    for (const auto& star : catalog) {
         cat_entry star_cat;
         make_cat_entry(star.name.data(), "J2000", 0, star.ra / 15.0, star.dec, 0, 0, 0, 0, &star_cat);
 

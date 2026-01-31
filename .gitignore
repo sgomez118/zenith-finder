@@ -107,3 +107,7 @@ build*
 # Ignore all local history of files
 .history
 .ionide
+
+# Generated data and logs
+stars.csv
+zenith_log_*.csv
