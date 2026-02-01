@@ -10,11 +10,11 @@ Here is the structured task list for **Zenith Finder v0.2**, designed to be dist
 * [x] **Worker Thread Decoupling:** Move the **Supernovas** calculation logic to a background thread to ensure the CLI stays responsive to user input.
 * [x] **Thread-Safe Data Sharing:** Implement a "double-buffer" or atomic pointer system to pass `CelestialResult` vectors from the math thread to the UI thread.
 
-## 📡 2. Dynamic Location (GPS/Serial)
+## 📡 2. Dynamic Location
 
-* [x] **Serial Port Listener:** Implement a cross-platform serial reader (using `termios` for Linux or `WinAPI` for Windows) to listen for GPS modules.
-* [x] **NMEA Sentence Parser:** Write a parser to extract `$GPGGA` or `$GPRMC` sentences to update the observer's Latitude, Longitude, and Altitude in real-time.
-* [x] **Manual Override System:** Ensure the CLI can gracefully fall back to manual coordinates if the GPS signal is lost or the hardware is disconnected.
+* [ ] **Serial Port Listener:** (Removed) Hardware integration postponed.
+* [ ] **NMEA Sentence Parser:** (Removed) Focusing on core features first.
+* [x] **Manual Override System:** Ensure the CLI can gracefully fall back to manual coordinates.
 
 ## 📂 3. External Data & IO
 

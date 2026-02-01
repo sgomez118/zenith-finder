@@ -3,12 +3,24 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <mutex>
 
 extern "C" {
 #include <novas.h>
 }
 
 namespace engine {
+
+std::once_flag g_init_flag;
+bool g_has_ephemeris = false;
+
+void InitEphemeris() {
+  // Fallback to built-in low-precision Earth/Sun
+  // SuperNOVAS built-in provider for basic accuracy
+  set_planet_provider(earth_sun_calc);
+  set_planet_provider_hp(earth_sun_calc_hp);
+  g_has_ephemeris = false; // Built-in only supports Earth/Sun well
+}
 
 // Helper to convert C++20 chrono time to Julian Date using NOVAS
 double GetJulianDate(std::chrono::system_clock::time_point tp) {
@@ -28,9 +40,7 @@ double GetJulianDate(std::chrono::system_clock::time_point tp) {
 std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
     const Observer& obs, const std::vector<Star>& catalog,
     std::chrono::system_clock::time_point time) {
-  // Use built-in low-precision ephemeris for Earth/Sun
-  set_planet_provider(earth_sun_calc);
-  set_planet_provider_hp(earth_sun_calc_hp);
+  std::call_once(g_init_flag, InitEphemeris);
 
   std::vector<CelestialResult> results;
 
@@ -83,6 +93,8 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
 
 std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     const Observer& obs, std::chrono::system_clock::time_point time) {
+  std::call_once(g_init_flag, InitEphemeris);
+  
   std::vector<SolarBody> results;
 
   double jd_utc = GetJulianDate(time);
@@ -98,19 +110,26 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     short id;
   };
 
-  // Note: Full solar system support requires a JPL ephemeris provider (e.g.
-  // solsys-ephem). For now, we rely on the built-in low-precision
-  // earth_sun_calc which supports Sun. Moon and planets will fail with error 82
-  // without a proper provider.
-
-  // Fallback: Sun only (and others to show they are missing/error)
+  // Supports full solar system if ephemeris is loaded
   std::vector<BodyDef> bodies = {
-      {"Sun", 10},
-      // {"Moon", 11}, // Fails without ephemeris
-      // {"Jupiter", 5} // Fails
+      {"Sun", NOVAS_SUN},
+      {"Moon", NOVAS_MOON},
+      {"Mercury", NOVAS_MERCURY},
+      {"Venus", NOVAS_VENUS},
+      {"Mars", NOVAS_MARS},
+      {"Jupiter", NOVAS_JUPITER},
+      {"Saturn", NOVAS_SATURN},
+      {"Uranus", NOVAS_URANUS},
+      {"Neptune", NOVAS_NEPTUNE},
+      {"Pluto", NOVAS_PLUTO}
   };
 
   for (const auto& body : bodies) {
+    // If no ephemeris, skip non-Sun bodies to avoid errors (or check error code)
+    if (!g_has_ephemeris && body.name != "Sun") {
+        continue;
+    }
+
     object obj;
     // make_object requires casting type
     make_object(NOVAS_PLANET, body.id, const_cast<char*>(body.name.c_str()),
@@ -119,10 +138,6 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     double ra, dec, dis;
     int error = topo_planet(jd_tt, &obj, delta_t, &site, NOVAS_REDUCED_ACCURACY,
                             &ra, &dec, &dis);
-
-    if (error != 0) {
-      // std::cerr << "NOVAS Error for " << body.name << ": " << error << "\n";
-    }
 
     if (error == 0) {
       double zd, az, rar, decr;

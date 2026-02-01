@@ -30,7 +30,6 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 * **Dynamic Refresh:** Implement a live-updating terminal loop (e.g., 1Hz refresh rate).
 * **Extended Catalogs:** Support for external data loading (CSV/JSON) for larger star datasets (e.g., Yale Bright Star Catalog).
-* **Hardware Integration:** Parse NMEA sentences from local serial ports for automatic GPS observer positioning.
 * **Data Export:** Generate `.txt` or `.csv` ephemeris files for external analysis.
 
 ---
@@ -40,6 +39,7 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 * **TUI Framework:** Integrate **FTXUI** for a responsive, dashboard-style terminal interface.
 * **Solar System:** Implement tracking for the **Sun, Moon, and Planets** (Mercury through Neptune).
+* **Zenith Radar:** 2D visualization of the sky in the TUI.
 * **Interactive Tables:** Scrollable lists for Stars and Solar System bodies.
 * **Configuration:** Load default observer location and settings from `config.toml`.
 
@@ -50,7 +50,6 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 * **Qt Framework:** Migrate to a full C++/Qt desktop application.
 * **Visual Filtering:** Tools to filter by constellation or magnitude.
-* **Zenith Radar:** 2D visualization of the sky.
 
 ---
 
