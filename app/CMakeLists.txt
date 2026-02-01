@@ -3,6 +3,7 @@ add_executable(zenith-finder
     windows_location_provider.cpp
     logger.cpp
     config_manager.cpp
+    zenith_ui.cpp
 )
 
 target_link_libraries(zenith-finder PRIVATE
