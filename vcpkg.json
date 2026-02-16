@@ -1,9 +1,10 @@
 {
   "dependencies": [
-    "supernovas",
-    "cli11",
     "catch2",
+    "cli11",
     "ftxui",
-    "tomlplusplus"
+    "supernovas",
+    "tomlplusplus",
+    "calceph"
   ]
 }
