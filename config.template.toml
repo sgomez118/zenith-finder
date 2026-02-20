@@ -1,5 +1,8 @@
 [catalog]
-path = 'stars.csv'
+path = 'stars.json'
+
+[ephemeris]
+path = 'de442.bsp'
 
 [observer]
 altitude = 0.0
