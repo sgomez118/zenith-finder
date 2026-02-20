@@ -108,6 +108,8 @@ build*
 .history
 .ionide
 
+# Config files
+config.toml
+
 # Generated data and logs
-stars.csv
 zenith_log_*.csv
