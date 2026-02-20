@@ -32,7 +32,10 @@ Config ConfigManager::Load(const std::filesystem::path& path) {
       config.observer.altitude = tbl["observer"]["altitude"].value_or(0.0);
 
     if (tbl["catalog"]["path"].is_string())
-      config.catalog_path = tbl["catalog"]["path"].value_or("stars.csv");
+      config.catalog_path = tbl["catalog"]["path"].value_or("");
+
+    if (tbl["ephemeris"]["path"].is_string())
+      config.ephemeris_path = tbl["ephemeris"]["path"].value_or("");
 
     if (tbl["ui"]["refresh_rate_ms"].is_integer())
       config.refresh_rate_ms = tbl["ui"]["refresh_rate_ms"].value_or(1000);
@@ -51,6 +54,7 @@ void ConfigManager::Save(const std::filesystem::path& path,
                                {"longitude", config.observer.longitude},
                                {"altitude", config.observer.altitude}}},
       {"catalog", toml::table{{"path", config.catalog_path}}},
+      {"ephemeris", toml::table{{"path", config.ephemeris_path}}},
       {"ui", toml::table{{"refresh_rate_ms", config.refresh_rate_ms}}}};
 
   std::ofstream file(path);

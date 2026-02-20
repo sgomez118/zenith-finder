@@ -19,6 +19,7 @@ namespace app {
 struct Config {
   engine::Observer observer;
   std::string catalog_path;
+  std::string ephemeris_path;
   int refresh_rate_ms;
 };
 
