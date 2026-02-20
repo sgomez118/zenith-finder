@@ -3,8 +3,13 @@
     "catch2",
     "cli11",
     "ftxui",
-    "supernovas",
+    {
+      "name": "supernovas",
+      "features": [
+        "solsys-calceph"
+      ]
+    },
     "tomlplusplus",
-    "calceph"
+    "nlohmann-json"
   ]
 }
