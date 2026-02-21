@@ -116,7 +116,13 @@ int main(int argc, char** argv) {
 
   CLI11_PARSE(app, argc, argv);
 
-  auto catalog = engine::CatalogLoader::LoadFromCSV(catalog_path);
+  std::vector<engine::Star> catalog;
+  if (catalog_path.ends_with(".json")) {
+    catalog = engine::CatalogLoader::LoadStarDataFromJSON(catalog_path);
+  } else {
+    catalog = engine::CatalogLoader::LoadStarDataFromCSV(catalog_path);
+  }
+
   if (catalog.empty()) {
     std::cerr << "Error: Could not load catalog from " << catalog_path
               << std::endl;

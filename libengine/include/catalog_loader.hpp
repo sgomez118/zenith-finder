@@ -5,13 +5,22 @@
 #include <string>
 #include <vector>
 
+extern "C" {
+#include <calceph.h>
+}
+
 #include "engine.hpp"
 
 namespace engine {
 
 class CatalogLoader {
  public:
-  static std::vector<Star> LoadFromCSV(const std::filesystem::path& path);
+  static std::vector<Star> LoadStarDataFromCSV(
+      const std::filesystem::path& path);
+  static std::vector<Star> LoadStarDataFromJSON(
+      const std::filesystem::path& path);
+  static std::shared_ptr<t_calcephbin> LoadFromEphemeris(
+      const std::filesystem::path& path);
 };
 
 }  // namespace engine
