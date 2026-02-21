@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
   if (catalog_path.ends_with(".json")) {
     catalog = engine::CatalogLoader::LoadStarDataFromJSON(catalog_path);
   } else {
-    catalog = engine::CatalogLoader::LoadStarDataFromCSV(catalog_path);
+    // catalog = engine::CatalogLoader::LoadStarDataFromCSV(catalog_path);
   }
 
   if (catalog.empty()) {
