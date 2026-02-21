@@ -3,13 +3,14 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <ranges>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <vector>
+
+#include <nlohmann/json.hpp>
 
 namespace engine {
 
@@ -79,7 +80,7 @@ std::tuple<std::string, long> GetStarNameAndCatalogIdFromIds(
     try {
       catalog_id = std::stol(id_string);
     } catch (const std::exception& e) {
-      std::cerr << e.what() << '\n';
+      std::cerr << "Error parsing catalog ID: " << e.what() << '\n';
     }
   } else {
     catalog_name = "FK5";
@@ -88,7 +89,7 @@ std::tuple<std::string, long> GetStarNameAndCatalogIdFromIds(
       try {
         catalog_id = std::stol(id_string);
       } catch (const std::exception& e) {
-        std::cerr << e.what() << '\n';
+        std::cerr << "Error parsing catalog ID: " << e.what() << '\n';
       }
     } else {
       catalog_name = "GC";
@@ -97,7 +98,7 @@ std::tuple<std::string, long> GetStarNameAndCatalogIdFromIds(
         try {
           catalog_id = std::stol(id_string);
         } catch (const std::exception& e) {
-          std::cerr << e.what() << '\n';
+          std::cerr << "Error parsing catalog ID: " << e.what() << '\n';
         }
       } else {
         catalog_name = "Unknown";
@@ -108,6 +109,45 @@ std::tuple<std::string, long> GetStarNameAndCatalogIdFromIds(
 }
 
 }  // namespace
+
+std::vector<Star> CatalogLoader::LoadStarDataFromCSV(
+    const std::filesystem::path& path) {
+  std::vector<Star> stars;
+  std::ifstream file(path);
+
+  if (!file.is_open()) {
+    return stars;
+  }
+
+  std::string line;
+  // Skip header
+  if (!std::getline(file, line)) {
+    return stars;
+  }
+
+  while (std::getline(file, line)) {
+    std::stringstream ss(line);
+    std::string name, ra_str, dec_str;
+
+    if (std::getline(ss, name, ',') && std::getline(ss, ra_str, ',') &&
+        std::getline(ss, dec_str, ',')) {
+      try {
+        Star star;
+        star.name = name;
+        star.ra = std::stod(ra_str);
+        star.dec = std::stod(dec_str);
+        // Default values for other fields as CSV only provides basic info
+        star.catalog = "Unknown";
+        star.catalog_id = 0;
+        stars.push_back(star);
+      } catch (const std::exception& e) {
+        std::cerr << "Error parsing CSV line: " << e.what() << '\n';
+      }
+    }
+  }
+
+  return stars;
+}
 
 std::vector<Star> CatalogLoader::LoadStarDataFromJSON(
     const std::filesystem::path& path) {
