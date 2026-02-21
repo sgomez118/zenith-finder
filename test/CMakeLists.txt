@@ -1,5 +1,8 @@
 add_executable(unit_tests 
-    test_main.cpp
+    test_catalog.cpp
+    test_engine.cpp
+    test_location.cpp
+    test_julian.cpp
 )
 
 

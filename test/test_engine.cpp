@@ -1,33 +1,20 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <chrono>
-#include <thread>
+#include <vector>
 
-#include "../app/location_provider.hpp"
 #include "engine.hpp"
 
 using namespace engine;
-
-class MockLocationProvider : public app::LocationProvider {
- public:
-  MockLocationProvider(Observer start) : obs_(start) {}
-  Observer GetLocation() override {
-    // Simulate slight eastward drift (0.001 deg per call)
-    obs_.longitude += 0.001;
-    return obs_;
-  }
-
- private:
-  Observer obs_;
-};
 
 TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
   // San Francisco coordinates
   Observer obs{37.7749, -122.4194, 0.0};
 
   auto now = std::chrono::system_clock::now();
-  std::vector<Star> mock_catalog = {{"Vega", 279.235, 38.784},
-                                    {"Sirius", 101.287, -16.716}};
+  std::vector<Star> mock_catalog = {
+      Star{.name = "Vega", .ra = 279.235, .dec = 38.784},
+      Star{.name = "Sirius", .ra = 101.287, .dec = -16.716}};
 
   SECTION("Returns stars for valid input") {
     auto results =
@@ -78,14 +65,4 @@ TEST_CASE("Solar System Calculation", "[engine]") {
     REQUIRE(body.distance_au > 0.9);  // Earth-Sun distance approx 1 AU
     REQUIRE(body.distance_au < 1.1);
   }
-}
-
-TEST_CASE("Mock Location Provider", "[app]") {
-  Observer start{0.0, 0.0, 0.0};
-  MockLocationProvider mock(start);
-
-  auto obs1 = mock.GetLocation();
-  auto obs2 = mock.GetLocation();
-
-  REQUIRE(obs2.longitude > obs1.longitude);
 }
