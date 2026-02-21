@@ -12,6 +12,7 @@ find_package(calceph CONFIG REQUIRED)
 find_package(CLI11 CONFIG REQUIRED)
 find_package(ftxui CONFIG REQUIRED)
 find_package(tomlplusplus CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Catch2 3 CONFIG REQUIRED)
 
 enable_testing()

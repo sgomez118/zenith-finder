@@ -14,7 +14,7 @@ Config ConfigManager::Load(const std::filesystem::path& path) {
   Config config;
   // Defaults
   config.observer = {51.5074, -0.1278, 0.0};
-  config.catalog_path = "stars.csv";
+  config.catalog_path = "stars.json";
   config.refresh_rate_ms = 1000;
 
   if (!std::filesystem::exists(path)) {
