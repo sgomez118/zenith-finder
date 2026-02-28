@@ -38,6 +38,7 @@ void SignalHandler(int) {
 void CalculationWorker(std::shared_ptr<app::AppState> state,
                        std::shared_ptr<app::LocationProvider> provider,
                        std::vector<engine::Star> catalog,
+                       std::shared_ptr<t_calcephbin> ephemeris,
                        std::shared_ptr<app::Logger> logger, bool is_gps,
                        int refresh_ms, std::function<void()> screen_callback) {
   // Initialize COM for Windows Location API
@@ -45,6 +46,9 @@ void CalculationWorker(std::shared_ptr<app::AppState> state,
 
   engine::AstrometryEngine astrometry_engine;
   astrometry_engine.SetCatalog(catalog);
+  if (ephemeris) {
+    astrometry_engine.SetEphemeris(ephemeris);
+  }
 
   while (state->running) {
     auto obs = provider->GetLocation();
@@ -56,18 +60,18 @@ void CalculationWorker(std::shared_ptr<app::AppState> state,
     }
 
     auto now = std::chrono::system_clock::now();
-    auto results = std::make_shared<std::vector<engine::CelestialResult>>(
+    auto star_results = std::make_shared<std::vector<engine::CelestialResult>>(
         astrometry_engine.CalculateZenithProximity(obs, now));
     auto solar_results = std::make_shared<std::vector<engine::SolarBody>>(
         astrometry_engine.CalculateSolarSystem(obs, now));
 
     if (logger) {
-      logger->Log(obs, *results);
+      logger->Log(obs, *star_results);
     }
 
     {
       std::lock_guard<std::mutex> lock(state->results_mutex);
-      state->latest_results = results;
+      state->latest_star_results = star_results;
       state->latest_solar_results = solar_results;
       state->last_calc_time = now;
     }
@@ -130,6 +134,12 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // Load Ephemeris
+  std::shared_ptr<t_calcephbin> ephemeris;
+  if (!config.ephemeris_path.empty()) {
+    ephemeris = engine::CatalogLoader::LoadFromEphemeris(config.ephemeris_path);
+  }
+
   // Initialize AppState
   auto state = std::make_shared<app::AppState>();
   running_ptr_ = &state->running;
@@ -157,7 +167,7 @@ int main(int argc, char** argv) {
 
   // Start worker
   std::thread worker(CalculationWorker, state, provider, std::move(catalog),
-                     logger, use_gps, config.refresh_rate_ms,
+                     ephemeris, logger, use_gps, config.refresh_rate_ms,
                      [&ui] { ui.TriggerRefresh(); });
 
   // Run UI Loop

@@ -20,7 +20,7 @@ struct AppState {
   engine::Observer current_location{0.0, 0.0, 0.0};
 
   std::mutex results_mutex;
-  std::shared_ptr<std::vector<engine::CelestialResult>> latest_results;
+  std::shared_ptr<std::vector<engine::CelestialResult>> latest_star_results;
   std::shared_ptr<std::vector<engine::SolarBody>> latest_solar_results;
   std::chrono::system_clock::time_point last_calc_time;
 };

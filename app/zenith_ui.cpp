@@ -3,21 +3,19 @@
 #include <chrono>
 #include <cmath>
 #include <format>
-#include <numbers>
-#include <string>
-
 #include <ftxui/dom/canvas.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/table.hpp>
+#include <numbers>
+#include <string>
 
 namespace app {
 
 ZenithUI::ZenithUI(std::shared_ptr<AppState> state)
-    : state_(std::move(state)), screen_(ftxui::ScreenInteractive::Fullscreen()) {}
+    : state_(std::move(state)),
+      screen_(ftxui::ScreenInteractive::Fullscreen()) {}
 
-void ZenithUI::TriggerRefresh() {
-  screen_.Post(ftxui::Event::Custom);
-}
+void ZenithUI::TriggerRefresh() { screen_.Post(ftxui::Event::Custom); }
 
 void ZenithUI::Run() {
   auto renderer = ftxui::Renderer([&] { return Render(); });
@@ -48,7 +46,7 @@ ftxui::Element ZenithUI::Render() {
   std::chrono::system_clock::time_point time;
   {
     std::lock_guard<std::mutex> lock(state_->results_mutex);
-    stars = state_->latest_results;
+    stars = state_->latest_star_results;
     solar = state_->latest_solar_results;
     time = state_->last_calc_time;
   }
@@ -65,28 +63,28 @@ ftxui::Element ZenithUI::Render() {
 
   // Sidebar Content
   auto sidebar =
-      ftxui::vbox({
-          ftxui::window(
-              ftxui::text(" Status "),
-              ftxui::vbox({
-                  ftxui::text(std::format(
-                      "GPS: {}", state_->gps_active ? "Active" : "Manual")) |
-                      (state_->gps_active
-                           ? ftxui::color(ftxui::Color::Green)
-                           : ftxui::color(ftxui::Color::Yellow)),
-                  ftxui::text(std::format(
-                      "Log: {}", state_->logging_enabled ? "On" : "Off")),
-                  ftxui::text("Time: " + time_str),
-              })),
-          ftxui::window(
-              ftxui::text(" Location "),
-              ftxui::vbox({
-                  ftxui::text(std::format("Lat: {:.4f} N", loc.latitude)),
-                  ftxui::text(std::format("Lon: {:.4f} E", loc.longitude)),
-                  ftxui::text(std::format("Alt: {:.1f} m", loc.altitude)),
-              })),
-          ftxui::filler(),
-          ftxui::text("Zenith Finder v0.3") | ftxui::dim | ftxui::center}) |
+      ftxui::vbox(
+          {ftxui::window(
+               ftxui::text(" Status "),
+               ftxui::vbox({
+                   ftxui::text(std::format(
+                       "GPS: {}", state_->gps_active ? "Active" : "Manual")) |
+                       (state_->gps_active
+                            ? ftxui::color(ftxui::Color::Green)
+                            : ftxui::color(ftxui::Color::Yellow)),
+                   ftxui::text(std::format(
+                       "Log: {}", state_->logging_enabled ? "On" : "Off")),
+                   ftxui::text("Time: " + time_str),
+               })),
+           ftxui::window(
+               ftxui::text(" Location "),
+               ftxui::vbox({
+                   ftxui::text(std::format("Lat: {:.4f} N", loc.latitude)),
+                   ftxui::text(std::format("Lon: {:.4f} E", loc.longitude)),
+                   ftxui::text(std::format("Alt: {:.1f} m", loc.altitude)),
+               })),
+           ftxui::filler(),
+           ftxui::text("Zenith Finder v0.3") | ftxui::dim | ftxui::center}) |
       ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 30);
 
   // Solar Table
@@ -197,7 +195,7 @@ ftxui::Element ZenithUI::Render() {
         int by = cy + static_cast<int>(r_b * std::sin(az_rad));
 
         auto color =
-            (body.name == "Sun") ? ftxui::Color::Yellow : ftxui::Color::Cyan;
+            (body.name == "SUN") ? ftxui::Color::Yellow : ftxui::Color::Cyan;
         c.DrawBlockCircle(bx, by, 3, color);
         c.DrawText(bx + 2, by + 2, body.name);
       }
