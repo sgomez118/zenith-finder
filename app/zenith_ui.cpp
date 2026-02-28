@@ -84,7 +84,7 @@ ftxui::Element ZenithUI::Render() {
                    ftxui::text(std::format("Alt: {:.1f} m", loc.altitude)),
                })),
            ftxui::filler(),
-           ftxui::text("Zenith Finder v0.3.0") | ftxui::dim | ftxui::center}) |      ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 30);
+           ftxui::text("Zenith Finder v0.4.0") | ftxui::dim | ftxui::center}) |      ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 30);
 
   // Solar Table
   std::vector<std::vector<ftxui::Element>> solar_rows = {
@@ -207,16 +207,16 @@ ftxui::Element ZenithUI::Render() {
              ftxui::separator(),
              ftxui::vbox({
                  ftxui::hbox({
-                     ftxui::window(ftxui::text(" Solar System "),
-                                   solar_table.Render()) |
+                     ftxui::window(ftxui::text(" Zenith Stars "),
+                                   star_table.Render()) |
                          ftxui::flex,
                      ftxui::window(ftxui::text(" Zenith Radar "),
                                    radar | ftxui::center) |
                          ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 60),
-                 }),
-                 ftxui::window(ftxui::text(" Zenith Stars "),
-                               star_table.Render()) |
-                     ftxui::flex,
+                 }) | ftxui::flex,
+                 ftxui::window(ftxui::text(" Solar System "),
+                               solar_table.Render()) |
+                     ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 10),
              }) | ftxui::flex,
          }) |
          ftxui::border;
