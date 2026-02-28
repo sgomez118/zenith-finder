@@ -61,7 +61,7 @@ TEST_CASE("Solar System Calculation", "[engine]") {
   // At least the Sun should be returned (if implemented)
   if (!bodies.empty()) {
     for (const auto& body : bodies) {
-      if (body.name == "Sun") {
+      if (body.name == "SUN") {
         REQUIRE(body.distance_au > 0.9);  // Earth-Sun distance approx 1 AU
         REQUIRE(body.distance_au < 1.1);
       }

@@ -21,6 +21,7 @@ namespace engine {
 
 struct AstrometryEngine::PrebuiltCatalog {
   std::vector<object> stars;
+  std::vector<object> planets;
 };
 
 AstrometryEngine::AstrometryEngine()
@@ -49,6 +50,30 @@ void AstrometryEngine::SetCatalog(std::span<const Star> catalog) {
   }
 }
 
+void AstrometryEngine::BuildPlanetsCatalog() const {
+  static const struct {
+    novas_planet id;
+    const char* name;
+  } planets[] = {{NOVAS_SUN, "SUN"},         {NOVAS_MERCURY, "MERCURY"},
+                 {NOVAS_VENUS, "VENUS"},     {NOVAS_EARTH, "EARTH"},
+                 {NOVAS_MARS, "MARS"},       {NOVAS_JUPITER, "JUPITER"},
+                 {NOVAS_SATURN, "SATURN"},   {NOVAS_URANUS, "URANUS"},
+                 {NOVAS_NEPTUNE, "NEPTUNE"}, {NOVAS_PLUTO, "PLUTO"},
+                 {NOVAS_MOON, "MOON"}};
+
+  prebuilt_->planets.clear();
+  prebuilt_->planets.reserve(std::size(planets));
+
+  for (const auto& p : planets) {
+    object planet_object;
+    make_planet(p.id, &planet_object);
+    // Ensure the name is set in the object struct
+    std::strncpy(planet_object.name, p.name, sizeof(planet_object.name) - 1);
+    planet_object.name[sizeof(planet_object.name) - 1] = '\0';
+    prebuilt_->planets.push_back(planet_object);
+  }
+}
+
 void AstrometryEngine::SetEphemeris(std::shared_ptr<t_calcephbin> ephemeris) {
   ephemeris_ = std::move(ephemeris);
   initialized_ = false;  // Force re-initialization of NOVAS
@@ -62,11 +87,15 @@ void AstrometryEngine::InitializeNovas() const {
     accuracy_ = NOVAS_FULL_ACCURACY;
   }
   initialized_ = true;
+
+  BuildPlanetsCatalog();
 }
 
 std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
     const Observer& obs, std::chrono::system_clock::time_point time) const {
-  InitializeNovas();
+  if (!initialized_) {
+    InitializeNovas();
+  }
 
   std::vector<CelestialResult> results;
   if (prebuilt_->stars.empty()) {
@@ -92,10 +121,22 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
                    kPolarOffsetX, kPolarOffsetY, &frame);
 
   for (auto i : std::views::iota(0ULL, prebuilt_->stars.size())) {
-    sky_pos star_position;
+    sky_pos star_position = {0};
 
     // Apparent coordinates in system
-    novas_sky_pos(&prebuilt_->stars[i], &frame, NOVAS_CIRS, &star_position);
+    auto status =
+        novas_sky_pos(&prebuilt_->stars[i], &frame, NOVAS_CIRS, &star_position);
+
+    if (status != 0) {
+      results.emplace_back(CelestialResult{
+          .name = star_names_[i],
+          .elevation = 0,
+          .azimuth = 0,
+          .zenith_dist = 0,
+          .is_rising = false,
+      });
+      continue;
+    }
 
     // Get local horizontal coordinates
     double az, el;
@@ -116,8 +157,53 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
 
 std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     const Observer& obs, std::chrono::system_clock::time_point time) const {
-  InitializeNovas();
+  if (!initialized_) {
+    InitializeNovas();
+  }
+
   std::vector<SolarBody> results;
+  if (prebuilt_->planets.empty()) {
+    return results;
+  }
+
+  results.reserve(prebuilt_->planets.size());
+
+  observer location;
+  novas_timespec t_spec;
+  novas_frame frame;
+
+  // Observer location
+  make_gps_observer(obs.latitude, obs.longitude, obs.altitude, &location);
+
+  // Set time of observance
+  auto jd = GetJulianDayParts(time);
+  novas_set_split_time(NOVAS_UTC, jd.day_number, jd.fraction, kLeapSeconds,
+                       kDUT1, &t_spec);
+
+  // Observer frame
+  novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location, &t_spec,
+                   kPolarOffsetX, kPolarOffsetY, &frame);
+
+  for (auto i : std::views::iota(0ULL, prebuilt_->planets.size())) {
+    sky_pos planet_position = {0};
+    // Apparent coordinates in system
+    auto status = novas_sky_pos(&prebuilt_->planets[i], &frame, NOVAS_CIRS,
+                                &planet_position);
+
+    // Get local horizontal coordinates
+    double az = 0, el = 0;
+    novas_app_to_hor(&frame, NOVAS_CIRS, planet_position.ra,
+                     planet_position.dec, novas_standard_refraction, &az, &el);
+
+    results.emplace_back(SolarBody{
+        .name = prebuilt_->planets[i].name,
+        .elevation = el,
+        .azimuth = az,
+        .zenith_dist = 90.0 - el,
+        .distance_au = planet_position.dis,
+        .is_rising = false,
+    });
+  }
 
   return results;
 }

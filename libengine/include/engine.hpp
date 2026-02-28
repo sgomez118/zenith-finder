@@ -79,6 +79,7 @@ class AstrometryEngine {
  private:
   // Internal helper to ensure NOVAS is initialized with the current ephemeris.
   void InitializeNovas() const;
+  void BuildPlanetsCatalog() const;
 
   std::vector<std::string> star_names_;
 
