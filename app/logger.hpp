@@ -1,5 +1,5 @@
-#ifndef APP_LOGGER_HPP_
-#define APP_LOGGER_HPP_
+#ifndef ZENITH_FINDER_APP_LOGGER_HPP_
+#define ZENITH_FINDER_APP_LOGGER_HPP_
 
 #include <atomic>
 #include <condition_variable>
@@ -44,4 +44,4 @@ class Logger {
 
 }  // namespace app
 
-#endif  // APP_LOGGER_HPP_
+#endif  // ZENITH_FINDER_APP_LOGGER_HPP_

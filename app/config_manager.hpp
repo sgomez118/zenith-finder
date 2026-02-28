@@ -1,5 +1,5 @@
-#ifndef APP_CONFIG_MANAGER_HPP_
-#define APP_CONFIG_MANAGER_HPP_
+#ifndef ZENITH_FINDER_APP_CONFIG_MANAGER_HPP_
+#define ZENITH_FINDER_APP_CONFIG_MANAGER_HPP_
 
 #include <filesystem>
 #include <optional>
@@ -31,4 +31,4 @@ class ConfigManager {
 
 }  // namespace app
 
-#endif  // APP_CONFIG_MANAGER_HPP_
+#endif  // ZENITH_FINDER_APP_CONFIG_MANAGER_HPP_

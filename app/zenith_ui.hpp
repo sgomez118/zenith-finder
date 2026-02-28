@@ -1,5 +1,5 @@
-#ifndef APP_ZENITH_UI_HPP_
-#define APP_ZENITH_UI_HPP_
+#ifndef ZENITH_FINDER_APP_ZENITH_UI_HPP_
+#define ZENITH_FINDER_APP_ZENITH_UI_HPP_
 
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
@@ -18,10 +18,10 @@ class ZenithUI {
  private:
   std::shared_ptr<AppState> state_;
   ftxui::ScreenInteractive screen_;
-  
+
   ftxui::Element Render();
 };
 
 }  // namespace app
 
-#endif  // APP_ZENITH_UI_HPP_
+#endif  // ZENITH_FINDER_APP_ZENITH_UI_HPP_

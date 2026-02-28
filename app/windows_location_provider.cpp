@@ -1,57 +1,44 @@
 #include "windows_location_provider.hpp"
 
-#pragma comment(lib, "locationapi.lib")
+#include <iostream>
 
 namespace app {
 
 WindowsLocationProvider::WindowsLocationProvider() {
-  // Constructor doesn't do much heavy lifting to avoid thread mismatch
-  // Initial values
-  last_known_obs_ = {51.5074, -0.1278, 0.0};  // Default to London if fails
+  HRESULT hr = CoCreateInstance(CLSID_Location, nullptr, CLSCTX_INPROC_SERVER,
+                                IID_PPV_ARGS(&location_));
+  if (SUCCEEDED(hr)) {
+    IID reportTypes[] = {IID_ILatLongReport};
+    hr = location_->RequestPermissions(nullptr, reportTypes, 1, TRUE);
+    if (SUCCEEDED(hr)) {
+      initialized_ = true;
+    }
+  }
 }
 
 WindowsLocationProvider::~WindowsLocationProvider() {
-  if (pLocation_) {
-    pLocation_->Release();
-    pLocation_ = nullptr;
+  if (location_) {
+    location_->Release();
   }
 }
 
 engine::Observer WindowsLocationProvider::GetLocation() {
-  if (!initialized_) {
-    HRESULT hr = CoCreateInstance(CLSID_Location, nullptr, CLSCTX_INPROC_SERVER,
-                                  IID_PPV_ARGS(&pLocation_));
-    if (SUCCEEDED(hr)) {
-      // Request permissions if needed (usually handled by OS prompt, but we can
-      // request report)
-      IID reportTypes[] = {IID_ILatLongReport};
-      hr = pLocation_->RequestPermissions(nullptr, reportTypes, 1, TRUE);
-      initialized_ = true;
-    }
-  }
+  if (!initialized_) return last_known_obs_;
 
-  if (pLocation_) {
-    ILocationReport* pReport = nullptr;
-    HRESULT hr = pLocation_->GetReport(IID_ILatLongReport, &pReport);
-    if (SUCCEEDED(hr) && pReport) {
-      ILatLongReport* pLatLongReport = nullptr;
-      hr = pReport->QueryInterface(IID_PPV_ARGS(&pLatLongReport));
-      if (SUCCEEDED(hr)) {
-        double lat = 0.0;
-        double lon = 0.0;
+  ILatLongReport* pLatLongReport = nullptr;
+  HRESULT hr = location_->GetReport(IID_ILatLongReport,
+                                    reinterpret_cast<ILocationReport**>(
+                                        &pLatLongReport));
 
-        pLatLongReport->GetLatitude(&lat);
-        pLatLongReport->GetLongitude(&lon);
+  if (SUCCEEDED(hr)) {
+    DOUBLE latitude = 0, longitude = 0, altitude = 0;
+    pLatLongReport->GetLatitude(&latitude);
+    pLatLongReport->GetLongitude(&longitude);
+    // Altitude is often not available
+    pLatLongReport->GetAltitude(&altitude);
 
-        // Update last known
-        last_known_obs_.latitude = lat;
-        last_known_obs_.longitude = lon;
-
-        // Clean up
-        pLatLongReport->Release();
-      }
-      pReport->Release();
-    }
+    last_known_obs_ = {latitude, longitude, altitude};
+    pLatLongReport->Release();
   }
 
   return last_known_obs_;

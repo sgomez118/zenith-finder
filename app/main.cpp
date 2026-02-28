@@ -28,14 +28,11 @@
 #include "windows_location_provider.hpp"
 #include "zenith_ui.hpp"
 
-// Google Style Guide: Do not use using-directives (e.g. using namespace foo).
-// Fully qualified names are used below.
-
 namespace {
-std::atomic<bool>* g_running_ptr = nullptr;
+std::atomic<bool>* running_ptr_ = nullptr;
 
 void SignalHandler(int) {
-  if (g_running_ptr) *g_running_ptr = false;
+  if (running_ptr_) *running_ptr_ = false;
 }
 
 void CalculationWorker(std::shared_ptr<app::AppState> state,
@@ -45,6 +42,9 @@ void CalculationWorker(std::shared_ptr<app::AppState> state,
                        int refresh_ms, std::function<void()> screen_callback) {
   // Initialize COM for Windows Location API
   HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
+  engine::AstrometryEngine astrometry_engine;
+  astrometry_engine.SetCatalog(catalog);
 
   while (state->running) {
     auto obs = provider->GetLocation();
@@ -57,9 +57,9 @@ void CalculationWorker(std::shared_ptr<app::AppState> state,
 
     auto now = std::chrono::system_clock::now();
     auto results = std::make_shared<std::vector<engine::CelestialResult>>(
-        engine::AstrometryEngine::CalculateZenithProximity(obs, catalog, now));
+        astrometry_engine.CalculateZenithProximity(obs, now));
     auto solar_results = std::make_shared<std::vector<engine::SolarBody>>(
-        engine::AstrometryEngine::CalculateSolarSystem(obs, now));
+        astrometry_engine.CalculateSolarSystem(obs, now));
 
     if (logger) {
       logger->Log(obs, *results);
@@ -82,6 +82,7 @@ void CalculationWorker(std::shared_ptr<app::AppState> state,
     CoUninitialize();
   }
 }
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -131,7 +132,7 @@ int main(int argc, char** argv) {
 
   // Initialize AppState
   auto state = std::make_shared<app::AppState>();
-  g_running_ptr = &state->running;
+  running_ptr_ = &state->running;
   state->logging_enabled = enable_logging;
 
   std::shared_ptr<app::Logger> logger;

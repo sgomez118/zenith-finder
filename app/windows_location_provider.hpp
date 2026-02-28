@@ -1,5 +1,5 @@
-#ifndef APP_WINDOWS_LOCATION_PROVIDER_HPP_
-#define APP_WINDOWS_LOCATION_PROVIDER_HPP_
+#ifndef ZENITH_FINDER_APP_WINDOWS_LOCATION_PROVIDER_HPP_
+#define ZENITH_FINDER_APP_WINDOWS_LOCATION_PROVIDER_HPP_
 
 #include <LocationAPI.h>
 #include <comdef.h>
@@ -21,11 +21,11 @@ class WindowsLocationProvider : public LocationProvider {
   engine::Observer GetLocation() override;
 
  private:
-  ILocation* pLocation_ = nullptr;
+  ILocation* location_ = nullptr;
   engine::Observer last_known_obs_{0.0, 0.0, 0.0};
   bool initialized_ = false;
 };
 
 }  // namespace app
 
-#endif  // APP_WINDOWS_LOCATION_PROVIDER_HPP_
+#endif  // ZENITH_FINDER_APP_WINDOWS_LOCATION_PROVIDER_HPP_

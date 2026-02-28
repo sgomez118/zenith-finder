@@ -1,5 +1,5 @@
-#ifndef APP_APP_STATE_HPP_
-#define APP_APP_STATE_HPP_
+#ifndef ZENITH_FINDER_APP_APP_STATE_HPP_
+#define ZENITH_FINDER_APP_APP_STATE_HPP_
 
 #include <atomic>
 #include <chrono>
@@ -27,4 +27,4 @@ struct AppState {
 
 }  // namespace app
 
-#endif  // APP_APP_STATE_HPP_
+#endif  // ZENITH_FINDER_APP_APP_STATE_HPP_

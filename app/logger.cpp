@@ -1,41 +1,32 @@
 #include "logger.hpp"
 
+#include <chrono>
+#include <filesystem>
 #include <format>
-#include <iomanip>
+#include <fstream>
 #include <iostream>
-#include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
 
 namespace app {
 
-Logger::Logger() {}
+Logger::Logger() = default;
 
 Logger::~Logger() { Stop(); }
 
 void Logger::Start() {
   if (running_) return;
-
-  std::string filename = GenerateFilename();
-  file_.open(filename, std::ios::out);
-  if (!file_.is_open()) {
-    std::cerr << "Failed to open log file: " << filename << std::endl;
-    return;
-  }
-
-  // Write Header
-  file_ << "Timestamp,Lat,Lon,Alt,Star,Elevation,Azimuth,ZenithDist,Status\n";
-
   running_ = true;
   thread_ = std::thread(&Logger::WriteLoop, this);
 }
 
 void Logger::Stop() {
+  if (!running_) return;
   running_ = false;
   cv_.notify_all();
   if (thread_.joinable()) {
     thread_.join();
-  }
-  if (file_.is_open()) {
-    file_.close();
   }
 }
 
@@ -43,59 +34,74 @@ void Logger::Log(const engine::Observer& obs,
                  const std::vector<engine::CelestialResult>& results) {
   if (!running_) return;
 
+  LogEntry entry;
+  entry.time = std::chrono::system_clock::now();
+  entry.obs = obs;
+  entry.results = results;
+
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    queue_.push({std::chrono::system_clock::now(), obs, results});
+    queue_.push(std::move(entry));
   }
   cv_.notify_one();
 }
 
 void Logger::WriteLoop() {
-  while (running_ || !queue_.empty()) {
-    LogEntry entry;
-    {
-      std::unique_lock<std::mutex> lock(mutex_);
-      cv_.wait(lock, [this] { return !queue_.empty() || !running_; });
+  std::string filename = GenerateFilename();
+  file_.open(filename, std::ios::out);
 
-      if (queue_.empty() && !running_) break;
-
-      entry = std::move(queue_.front());
-      queue_.pop();
-    }
-
-    auto time_t = std::chrono::system_clock::to_time_t(entry.time);
-    std::tm tm_buf;
-#ifdef _WIN32
-    gmtime_s(&tm_buf, &time_t);
-#else
-    gmtime_r(&time_t, &tm_buf);
-#endif
-    std::stringstream ss;
-    ss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
-
-    for (const auto& res : entry.results) {
-      file_ << std::format(
-          "{},{:.4f},{:.4f},{:.1f},{},{:.2f},{:.2f},{:.2f},{}\n", ss.str(),
-          entry.obs.latitude, entry.obs.longitude, entry.obs.altitude, res.name,
-          res.elevation, res.azimuth, res.zenith_dist,
-          (res.is_rising ? "RISING" : "SETTING"));
-    }
-    file_.flush();
+  if (!file_.is_open()) {
+    std::cerr << "Error: Could not open log file " << filename << std::endl;
+    running_ = false;
+    return;
   }
+
+  // Header
+  file_ << "Time,Latitude,Longitude,Altitude,Star,Elevation,Azimuth,ZenithDist"
+        << std::endl;
+
+  while (running_ || !queue_.empty()) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    cv_.wait(lock, [&] { return !queue_.empty() || !running_; });
+
+    while (!queue_.empty()) {
+      LogEntry entry = std::move(queue_.front());
+      queue_.pop();
+      lock.unlock();
+
+      auto time_t = std::chrono::system_clock::to_time_t(entry.time);
+      std::tm tm_now;
+      gmtime_s(&tm_now, &time_t);
+
+      std::string time_str = std::format(
+          "{:04}-{:02}-{:02} {:02}:{:02}:{:02}", tm_now.tm_year + 1900,
+          tm_now.tm_mon + 1, tm_now.tm_mday, tm_now.tm_hour, tm_now.tm_min,
+          tm_now.tm_sec);
+
+      for (const auto& res : entry.results) {
+        file_ << std::format("{},{:.6f},{:.6f},{:.2f},{},{:.4f},{:.4f},{:.4f}\n",
+                             time_str, entry.obs.latitude, entry.obs.longitude,
+                             entry.obs.altitude, res.name, res.elevation,
+                             res.azimuth, res.zenith_dist);
+      }
+      file_.flush();
+
+      lock.lock();
+    }
+  }
+
+  file_.close();
 }
 
 std::string Logger::GenerateFilename() {
   auto now = std::chrono::system_clock::now();
   auto time_t = std::chrono::system_clock::to_time_t(now);
-  std::tm tm_buf;
-#ifdef _WIN32
-  gmtime_s(&tm_buf, &time_t);
-#else
-  gmtime_r(&time_t, &tm_buf);
-#endif
-  std::stringstream ss;
-  ss << "zenith_log_" << std::put_time(&tm_buf, "%Y%m%d_%H%M%S") << ".csv";
-  return ss.str();
+  std::tm tm_now;
+  gmtime_s(&tm_now, &time_t);
+
+  return std::format("zenith_log_{:04}{:02}{:02}_{:02}{:02}{:02}.csv",
+                     tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
+                     tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
 }
 
 }  // namespace app
