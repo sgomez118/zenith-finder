@@ -7,6 +7,6 @@ target_include_directories(engine PUBLIC include)
 
 target_link_libraries(engine PRIVATE
     supernovas::core
-    calceph
+    supernovas::solsys-calceph
     nlohmann_json::nlohmann_json
 )

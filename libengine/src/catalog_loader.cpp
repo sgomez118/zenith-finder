@@ -1,224 +1,134 @@
 #include "catalog_loader.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <ranges>
+#include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
-#include <string_view>
-#include <tuple>
 #include <vector>
-
-#include <nlohmann/json.hpp>
 
 namespace engine {
 
-namespace {
-
-// Finds the value associated with a key from the list of pipe separated
-// identifiers.
-std::string GetValueFromIds(const std::string& ids, const std::string& key) {
-  for (const auto& id_range : std::views::split(std::string_view(ids), '|')) {
-    // Convert range to string to handle potential non-contiguous iterators in
-    // C++20 split
-    std::string entry(id_range.begin(), id_range.end());
-    std::string_view entry_view(entry);
-
-    // Trim leading and trailing spaces from the entry
-    if (auto start = entry_view.find_first_not_of(' ');
-        start != std::string_view::npos) {
-      entry_view = entry_view.substr(start);
-      if (auto end = entry_view.find_last_not_of(' ');
-          end != std::string_view::npos) {
-        entry_view = entry_view.substr(0, end + 1);
-      }
-    } else {
-      continue;
-    }
-
-    // Match the key at the start of the entry
-    if (entry_view.starts_with(key)) {
-      std::string_view val = entry_view.substr(key.size());
-      // Key must be the entire entry or followed by a space
-      if (val.empty()) {
-        return "";
-      }
-      if (val.front() == ' ') {
-        // Trim leading spaces from the value and return it
-        if (auto vstart = val.find_first_not_of(' ');
-            vstart != std::string_view::npos) {
-          return std::string(val.substr(vstart));
-        }
-        return "";
-      }
-    }
-  }
-
-  return "";
-}
-
-// Finds the name from the identifiers or returns the default name.
-std::string GetStarNameFromIds(const std::string& ids,
-                               const std::string& default_name) {
-  std::string name = GetValueFromIds(ids, "NAME");
-  if (!name.empty()) {
-    return name;
-  }
-
-  return default_name;
-}
-
-// Finds the catalog name (HIP, FK5, GC) and ID from the identifiers.
-std::tuple<std::string, long> GetStarNameAndCatalogIdFromIds(
-    const std::string& ids) {
-  std::string catalog_name = "HIP";
-  long catalog_id = 0;
-
-  std::string id_string = GetValueFromIds(ids, catalog_name);
-  if (!id_string.empty()) {
-    try {
-      catalog_id = std::stol(id_string);
-    } catch (const std::exception& e) {
-      std::cerr << "Error parsing catalog ID: " << e.what() << '\n';
-    }
-  } else {
-    catalog_name = "FK5";
-    id_string = GetValueFromIds(ids, catalog_name);
-    if (!id_string.empty()) {
-      try {
-        catalog_id = std::stol(id_string);
-      } catch (const std::exception& e) {
-        std::cerr << "Error parsing catalog ID: " << e.what() << '\n';
-      }
-    } else {
-      catalog_name = "GC";
-      id_string = GetValueFromIds(ids, catalog_name);
-      if (!id_string.empty()) {
-        try {
-          catalog_id = std::stol(id_string);
-        } catch (const std::exception& e) {
-          std::cerr << "Error parsing catalog ID: " << e.what() << '\n';
-        }
-      } else {
-        catalog_name = "Unknown";
-      }
-    }
-  }
-  return {catalog_name, catalog_id};
-}
-
-}  // namespace
-
 std::vector<Star> CatalogLoader::LoadStarDataFromCSV(
     const std::filesystem::path& path) {
-  std::vector<Star> stars;
+  std::vector<Star> catalog;
   std::ifstream file(path);
-
   if (!file.is_open()) {
-    return stars;
+    std::cerr << "Error: Could not open star catalog " << path << std::endl;
+    return catalog;
   }
 
   std::string line;
   // Skip header
-  if (!std::getline(file, line)) {
-    return stars;
-  }
+  std::getline(file, line);
 
   while (std::getline(file, line)) {
     std::stringstream ss(line);
-    std::string name, ra_str, dec_str;
+    std::string field;
+    Star star;
 
-    if (std::getline(ss, name, ',') && std::getline(ss, ra_str, ',') &&
-        std::getline(ss, dec_str, ',')) {
-      try {
-        Star star;
-        star.name = name;
-        star.ra = std::stod(ra_str);
-        star.dec = std::stod(dec_str);
-        // Default values for other fields as CSV only provides basic info
-        star.catalog = "Unknown";
-        star.catalog_id = 0;
-        stars.push_back(star);
-      } catch (const std::exception& e) {
-        std::cerr << "Error parsing CSV line: " << e.what() << '\n';
-      }
-    }
+    std::getline(ss, star.name, ',');
+    std::getline(ss, star.catalog, ',');
+    std::getline(ss, field, ',');
+    star.catalog_id = std::stol(field);
+    std::getline(ss, field, ',');
+    star.ra = std::stod(field);
+    std::getline(ss, field, ',');
+    star.dec = std::stod(field);
+    // ... parse other fields if needed ...
+
+    catalog.push_back(star);
   }
 
-  return stars;
+  return catalog;
 }
 
 std::vector<Star> CatalogLoader::LoadStarDataFromJSON(
     const std::filesystem::path& path) {
-  std::vector<Star> stars;
+  std::vector<Star> catalog;
   std::ifstream file(path);
-
   if (!file.is_open()) {
-    return stars;
+    std::cerr << "Error: Could not open star catalog " << path << std::endl;
+    return catalog;
   }
 
   try {
-    nlohmann::json json;
-    file >> json;
+    nlohmann::json j;
+    file >> j;
 
-    if (json.contains("data") && json["data"].is_array()) {
-      for (const auto& row : json["data"]) {
-        if (row.is_array() && row.size() >= 15) {
-          std::string ids = row[14].is_null() ? "" : row[14].get<std::string>();
+    if (!j.contains("data") || !j["data"].is_array()) {
+      return catalog;
+    }
 
-          std::string star_name =
-              row[0].is_null() ? "" : row[0].get<std::string>();
-          star_name = GetStarNameFromIds(ids, star_name);
+    for (const auto& item : j["data"]) {
+      if (!item.is_array() || item.size() < 15) {
+        continue;
+      }
 
-          auto [catalog_name, catalog_id] = GetStarNameAndCatalogIdFromIds(ids);
+      Star star;
+      // Positional fields from JSON
+      // 0: main_id, 1: ra, 2: dec, 3: coo_qual, 4: pmra, 5: pmdec, 6: pm_qual,
+      // 7: plx, 8: plx_qual, 9: rv, 10: rv_qual, 11: flux, 12: flux_err,
+      // 13: flux_qual, 14: ids
+      star.ra = item[1].get<double>();
+      star.dec = item[2].get<double>();
+      star.coo_qual = item[3].is_string() ? item[3].get<std::string>()[0] : ' ';
+      star.pmra = item[4].is_number() ? item[4].get<double>() : 0.0;
+      star.pmdec = item[5].is_number() ? item[5].get<double>() : 0.0;
+      star.pm_qual = item[6].is_string() ? item[6].get<std::string>()[0] : ' ';
+      star.parallax = item[7].is_number() ? item[7].get<double>() : 0.0;
+      star.plx_qual = item[8].is_string() ? item[8].get<std::string>()[0] : ' ';
+      star.radial_velocity = item[9].is_number() ? item[9].get<double>() : 0.0;
+      star.rvz_qual =
+          item[10].is_string() ? item[10].get<std::string>()[0] : ' ';
+      star.flux = item[11].is_number() ? item[11].get<float>() : 0.0f;
+      star.flux_err = item[12].is_number() ? item[12].get<float>() : 0.0f;
+      star.flux_qual =
+          item[13].is_string() ? item[13].get<std::string>()[0] : ' ';
+      star.ids = item[14].get<std::string>();
 
-          Star star;
-          star.name = star_name;
-          star.catalog = catalog_name;
-          star.catalog_id = catalog_id;
-          star.ra = row[1].is_null() ? 0.0 : row[1].get<double>();
-          star.dec = row[2].is_null() ? 0.0 : row[2].get<double>();
-          star.coo_qual = row[3].is_null() ? ' ' : row[3].get<std::string>()[0];
-          star.pmra = row[4].is_null() ? 0.0 : row[4].get<double>();
-          star.pmdec = row[5].is_null() ? 0.0 : row[5].get<double>();
-          star.pm_qual = row[6].is_null() ? ' ' : row[6].get<std::string>()[0];
-          star.parallax = row[7].is_null() ? 0.0 : row[7].get<double>();
-          star.plx_qual = row[8].is_null() ? ' ' : row[8].get<std::string>()[0];
-          star.radial_velocity = row[9].is_null() ? 0.0 : row[9].get<double>();
-          star.rvz_qual =
-              row[10].is_null() ? ' ' : row[10].get<std::string>()[0];
-          star.flux = row[11].is_null() ? 0.0f : row[11].get<float>();
-          star.flux_err = row[12].is_null() ? 0.0f : row[12].get<float>();
-          star.flux_qual =
-              row[13].is_null() ? ' ' : row[13].get<std::string>()[0];
-          star.ids = ids;
-          stars.push_back(star);
+      // Parse IDs for better name and Catalog ID
+      std::stringstream ss(star.ids);
+      std::string id_token;
+      while (std::getline(ss, id_token, '|')) {
+        if (id_token.starts_with("NAME ") && star.name.empty()) {
+          star.name = id_token.substr(5);
+        } else if (id_token.starts_with("HIP ")) {
+          star.catalog = "HIP";
+          try {
+            star.catalog_id = std::stol(id_token.substr(4));
+          } catch (...) {
+            star.catalog_id = 0;
+          }
         }
       }
+
+      if (star.name.empty()) {
+        star.name = item[0].get<std::string>();
+      }
+
+      catalog.push_back(star);
     }
-  } catch (const std::exception& e) {
-    std::cerr << "Error parsing JSON catalog: " << e.what() << '\n';
+  } catch (const nlohmann::json::exception& e) {
+    std::cerr << "JSON Parsing Error: " << e.what() << std::endl;
   }
 
-  return stars;
+  return catalog;
 }
 
 std::shared_ptr<t_calcephbin> CatalogLoader::LoadFromEphemeris(
     const std::filesystem::path& path) {
-  std::shared_ptr<t_calcephbin> ephemeris;
-  std::ifstream file(path);
-
-  if (!file.is_open()) {
-    return ephemeris;
+  t_calcephbin* handle = calceph_open(path.string().c_str());
+  if (!handle) {
+    std::cerr << "Error: Could not open ephemeris file " << path << std::endl;
+    return nullptr;
   }
 
-  auto ephem = calceph_open(path.string().c_str());
-  if (ephem) {
-    ephemeris = std::shared_ptr<t_calcephbin>(ephem, calceph_close);
-  }
-
-  return ephemeris;
+  return std::shared_ptr<t_calcephbin>(handle, [](t_calcephbin* h) {
+    if (h) calceph_close(h);
+  });
 }
 
 }  // namespace engine
