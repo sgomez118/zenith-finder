@@ -1,58 +1,82 @@
 # Zenith Finder: Celestial Tracker
 
 ## Overview
-Zenith Finder is a C++ desktop application built with Qt that allows users to identify and track celestial bodies visible from their location. It utilizes the **SuperNOVAS** library for high-precision astronomical calculations.
+Zenith Finder is a high-performance C++20 TUI application designed for precise local zenith tracking and celestial orientation. It identifies stars and solar system bodies currently visible from your location, prioritizing those closest to the local vertical (zenith). It utilizes the **SuperNOVAS** astrometry engine for IAU-compliant coordinate transformations and **FTXUI** for a responsive, dashboard-style terminal interface.
 
 ## Core Features
-1.  **Visibility Calculation**: Displays a list of celestial bodies visible at a specific time and GPS location.
-2.  **Smart Sorting**: Objects are sorted by **brightness** (magnitude) to highlight the most prominent stars/planets.
-3.  **Tracking & Ephemeris**: Users can select a specific star to track over a defined time range.
-4.  **Ephemeris Export**: Generates an ephemeris file (tracking data) for the selected object and time window.
+1.  **Zenith Radar**: A real-time 2D polar projection of the sky, highlighting stars and planets directly above you.
+2.  **Solar System Tracking**: Accurate positions for the Sun, Moon, and all major planets (Mercury through Neptune).
+3.  **Live Dashboard**: A 1Hz refresh loop providing a real-time "live" view of the sky.
+4.  **Automatic GPS Integration**: Detects your coordinates automatically via the Windows Location API.
+5.  **Dynamic Star Catalog**: Loads external star data from JSON or CSV formats.
+6.  **Configurable**: Settings for observer location, refresh rates, and data paths via `config.toml`.
+7.  **Data Logging**: Optional logging of celestial results to timestamped CSV files for external analysis.
 
 ## Technical Stack
-*   **Language**: C++
-*   **GUI Framework**: Qt (Widgets or Quick)
-*   **Astronomy Engine**: [SuperNOVAS](https://github.com/supernovas) (SNO)
+*   **Language**: C++20 (utilizing `<chrono>`, `std::format`, and `<numbers>`)
+*   **TUI Framework**: [FTXUI](https://github.com/ArthurSonzogni/FTXUI)
+*   **Astronomy Engine**: [SuperNOVAS](https://github.com/supernovas)
+*   **Ephemeris Library**: [CALCEPH](https://www.imcce.fr/inpop/calceph) (via SuperNOVAS)
+*   **Configuration**: [toml++](https://github.com/marzer/tomlplusplus)
+*   **CLI Parser**: [CLI11](https://github.com/CLIUtils/CLI11)
 *   **Build System**: CMake
 
-## Architecture Design
+## Setup & Data Files
 
-### 1. The Engine (Backend)
-Wraps the SuperNOVAS C API to provide C++ friendly classes.
-*   `CelestialCalculator`: Handles the core visibility logic.
-    *   Input: `ObserverLocation` (Lat, Lon, Alt), `DateTime`.
-    *   Process: Iterates through catalog of stars/planets, calculates Azimuth/Altitude using SuperNOVAS.
-    *   Output: `std::vector<CelestialBody>` sorted by magnitude.
-*   `EphemerisGenerator`: Handles the "tracking" use case.
-    *   Input: `CelestialBody` ID, `StartTime`, `EndTime`, `Interval`.
-    *   Output: Writes a file (e.g., `star_track.txt`) containing position data over time.
+### 1. Configuration (`config.toml`)
+Copy `config.template.toml` to `config.toml` in the project root and customize your default location and data paths:
+```toml
+[observer]
+latitude = 51.5074
+longitude = -0.1278
+altitude = 0.0
 
-### 2. The Interface (Frontend)
-*   **Main Window**:
-    *   Inputs: Latitude, Longitude, Date/Time picker.
-    *   "Scan Sky" button.
-*   **Results Table**:
-    *   Columns: Name, Type (Star/Planet), Brightness (Mag), Azimuth, Altitude.
-    *   Clicking a row opens the "Track Object" dialog.
-*   **Track Object Dialog**:
-    *   Select Time Duration (e.g., "Next 4 hours").
-    *   "Generate Ephemeris" button to save the file.
+[catalog]
+path = 'stars.json'
+```
 
-## Getting Started
+### 2. Star Catalog
+The application requires a catalog of stars. You can use the provided `stars.json` or generate a CSV catalog from the HYG database:
+```bash
+python scripts/fetch_catalog.py
+```
+This generates `stars.csv` in the root directory. You can configure the path in `config.toml` or via CLI.
+
+### 3. Planetary Ephemeris (Recommended)
+For high-precision tracking of all planets, you should provide a JPL binary ephemeris file (e.g., DE442, DE421, or DE405).
+1.  Download a binary ephemeris (e.g., [DE442](https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/)).
+2.  Update the `ephemeris.path` in `config.toml` to point to the file.
+
+## Build Instructions
 
 ### Prerequisites
-*   C++ Compiler (GCC/Clang/MSVC)
-*   CMake
-*   vcpkg
+*   C++ Compiler (MSVC 2019+ or GCC 10+)
+*   CMake 3.20+
+*   vcpkg (for dependency management)
 
-### Build Instructions
-```bash
-# Clone vcpkg if not already done
-git clone https://github.com/microsoft/vcpkg.git
-./vcpkg/bootstrap-vcpkg.sh
+### Windows (MSVC)
+```powershell
+# Configure with "x64-debug" preset (assuming vcpkg is set up)
+cmake --preset x64-debug
 
-# Configure with CMake (assuming vcpkg is in a standard location or using CMAKE_TOOLCHAIN_FILE)
-mkdir build && cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE=[path_to_vcpkg]/scripts/buildsystems/vcpkg.cmake
-cmake --build .
+# Build
+cmake --build --preset x64-debug
 ```
+
+## Usage
+Run the executable from the project root.
+
+```powershell
+./build/x64-debug/app/zenith-finder.exe [options]
+```
+
+### CLI Options:
+*   `--lat VALUE`: Manually set observer latitude (degrees).
+*   `--lon VALUE`: Manually set observer longitude (degrees).
+*   `--alt VALUE`: Manually set observer altitude (meters).
+*   `--gps`: Use system GPS location service (overrides manual coordinates).
+*   `--catalog PATH`: Path to a custom star catalog file (.json or .csv).
+*   `--log`: Enable logging to a timestamped CSV file.
+
+### Key Bindings:
+*   `q`: Quit the application.
