@@ -1,7 +1,11 @@
-#ifndef LIBENGINE_INCLUDE_ENGINE_HPP_
-#define LIBENGINE_INCLUDE_ENGINE_HPP_
+#ifndef ZENITH_FINDER_LIBENGINE_INCLUDE_ENGINE_HPP_
+#define ZENITH_FINDER_LIBENGINE_INCLUDE_ENGINE_HPP_
+
+#include <calceph.h>
 
 #include <chrono>
+#include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -52,15 +56,40 @@ struct Observer {
 
 class AstrometryEngine {
  public:
-  static std::vector<CelestialResult> CalculateZenithProximity(
-      const Observer& obs, const std::vector<Star>& catalog,
-      std::chrono::system_clock::time_point time =
-          std::chrono::system_clock::now());
-  static std::vector<SolarBody> CalculateSolarSystem(
+  AstrometryEngine();
+  ~AstrometryEngine();
+
+  // Pre-builds the NOVAS star objects from the catalog for efficient
+  // calculation.
+  void SetCatalog(std::span<const Star> catalog);
+
+  // Sets the ephemeris to be used for solar system and high-precision
+  // calculations.
+  void SetEphemeris(std::shared_ptr<t_calcephbin> ephemeris);
+
+  // Calculates zenith proximity using the pre-built catalog.
+  [[nodiscard]] std::vector<CelestialResult> CalculateZenithProximity(
       const Observer& obs, std::chrono::system_clock::time_point time =
-                               std::chrono::system_clock::now());
+                               std::chrono::system_clock::now()) const;
+
+  [[nodiscard]] std::vector<SolarBody> CalculateSolarSystem(
+      const Observer& obs, std::chrono::system_clock::time_point time =
+                               std::chrono::system_clock::now()) const;
+
+ private:
+  // Internal helper to ensure NOVAS is initialized with the current ephemeris.
+  void InitializeNovas() const;
+
+  std::vector<std::string> star_names_;
+
+  struct PrebuiltCatalog;
+  std::unique_ptr<PrebuiltCatalog> prebuilt_;
+
+  std::shared_ptr<t_calcephbin> ephemeris_;
+  mutable int accuracy_ = 0;
+  mutable bool initialized_ = false;
 };
 
 }  // namespace engine
 
-#endif  // LIBENGINE_INCLUDE_ENGINE_HPP_
+#endif  // ZENITH_FINDER_LIBENGINE_INCLUDE_ENGINE_HPP_
