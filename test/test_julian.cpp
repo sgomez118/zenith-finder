@@ -41,6 +41,25 @@ TEST_CASE("Julian Date Clock Basic Operations", "[julian]") {
     }
 }
 
+TEST_CASE("Julian Day Parts Extraction", "[julian]") {
+    // 2024-05-18 18:00:00 UTC
+    // JD = 2460449.25
+    auto tp = sys_days{May/18/2024} + 18h;
+    
+    SECTION("Using system_clock") {
+        auto parts = GetJulianDayParts(tp);
+        REQUIRE(parts.day_number == 2460449);
+        REQUIRE_THAT(parts.fraction, Catch::Matchers::WithinAbs(0.25, 1e-9));
+    }
+
+    SECTION("Using JulianClock time_point") {
+        auto jd_tp = clock_cast<JulianClock>(tp);
+        auto parts = GetJulianDayParts(jd_tp);
+        REQUIRE(parts.day_number == 2460449);
+        REQUIRE_THAT(parts.fraction, Catch::Matchers::WithinAbs(0.25, 1e-9));
+    }
+}
+
 TEST_CASE("Julian Date Clock Precision and Overflow", "[julian]") {
     // Test that it handles high precision system_clock::now() which is often nanoseconds
     auto now = system_clock::now();
