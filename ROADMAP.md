@@ -4,60 +4,55 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 ---
 
-## 🚀 Phase 0.1: The Minimalist CLI (Current)
+## 🚀 Phase 0.1: The Minimalist CLI (Completed)
 **Goal:** Establish the core astrometry engine and time-conversion logic with a zero-dependency CLI.
-
-### Core Engine
-* **Astrometry:** Integrate the **Supernovas** C library for IAU-compliant coordinate transformations.
-* **Time Handling:** Implement C++20 `<chrono>` for high-precision system time to Julian Date (JD) and Terrestrial Time (TT) conversion.
-* **Coordinate Math:** Native C++20 implementation for converting Geodetic coordinates to Topocentric systems.
-
-### Star Catalog & Logic
-* **Static Catalog:** A `constexpr` array containing the **50 brightest stars** (J2000 coordinates).
-* **Zenith Calculation:** Calculate proximity to the vertical ($90^\circ - \text{Elevation}$).
-* **Sky Status Indicators:**
-    * **[RISING]**: Object is in the Eastern sky (Azimuth $0^\circ \leq Az < 180^\circ$).
-    * **[SETTING]**: Object is in the Western sky (Azimuth $180^\circ \leq Az < 360^\circ$).
-
-### Interface
-* Standard CLI input for Latitude and Longitude.
-* A formatted, sorted table output highlighting stars closest to the Zenith.
 
 ---
 
 ## 🛰️ Phase 0.2: Real-time Tracking & Data Expansion (Completed)
 **Goal:** Transition from a snapshot tool to a dynamic tracking utility.
 
-* **Dynamic Refresh:** Implement a live-updating terminal loop (e.g., 1Hz refresh rate).
-* **Extended Catalogs:** Support for external data loading (CSV/JSON) for larger star datasets (e.g., Yale Bright Star Catalog).
-* **Data Export:** Generate `.txt` or `.csv` ephemeris files for external analysis.
-
 ---
 
 ## 🪐 Phase 0.3: Solar System & TUI Integration (Completed)
 **Goal:** Expand core tracking to the Solar System and upgrade to a robust TUI.
 
-* **TUI Framework:** Integrate **FTXUI** for a responsive, dashboard-style terminal interface.
-* **Solar System:** Implement tracking for the **Sun, Moon, and Planets** (Mercury through Neptune).
-* **Zenith Radar:** 2D visualization of the sky in the TUI.
-* **Interactive Tables:** Scrollable lists for Stars and Solar System bodies.
-* **Configuration:** Load default observer location and settings from `config.toml`.
+---
+
+## 📊 Phase 0.4: Advanced TUI & Engine Optimization (Next)
+**Goal:** Refine the user experience for large datasets and optimize calculation performance.
+
+### Enhanced Interface
+* **Layout Swap:** Prioritize the "Zenith Star" view over the "Solar System" view for better primary tracking.
+* **Virtualized Scrolling:** Implement high-performance scrolling for the star list to support 50,000+ objects without UI lag.
+* **Dynamic Sorting:** Allow users to sort by any column (Elevation, Azimuth, Magnitude).
+* **Interactive Filtering:** Add range-based filters (e.g., Magnitude < 6.0, Elevation > 15°).
+
+### Engine Performance
+* **Visibility Culling:** Implement a fixed 0° elevation cutoff directly in the calculation loop to filter non-visible objects.
+* **Predicate-Based Fetching:** Pass filtering criteria into `CalculateZenithProximity` to avoid unnecessary coordinate transformations for objects below the horizon.
+* **Memory Optimization:** Refactor catalog management to handle high-density datasets (50k+ stars) efficiently.
 
 ---
 
-## 🖥️ Phase 0.4: Advanced Features & GUI (Future)
-**Goal:** Graphical Interface and Advanced Filtering.
+## 🌏 Phase 0.5: High-Precision Astrometry
+**Goal:** Integrate Earth Orientation Parameters (EOP) for sub-arcsecond accuracy using local data.
 
-* **Qt Framework:** Migrate to a full C++/Qt desktop application.
-* **Visual Filtering:** Tools to filter by constellation or magnitude.
+* **IERS Bulletin Support:** Implement local file parsers for **IERS Bulletins A, B, C, and D** (`LoadIersBulletin[A-D]`) to support offline use in remote areas.
+* **EOP Integration:** Use loaded bulletin data to update Polar Motion ($x, y$) and $DUT1$ parameters in the astrometry frame.
+* **Leap Second Management:** Automated handling of UTC-TAI offsets based on current bulletins.
 
 ---
 
-## 📡 Phase 0.5: Low Earth Orbit (LEO) Tracking
+## 📡 Phase 0.6: Low Earth Orbit (LEO) Tracking (Deprioritized)
 **Goal:** Real-time tracking of satellites and the International Space Station (ISS).
-* **TLE Integration:** Support for **Two-Line Element (TLE)** sets via SGP4 (Simplified General Perturbations) algorithms.
-* **High-Velocity Logic:** Optimize the refresh loop for high-speed objects that cross the zenith in minutes rather than hours.
-* **Pass Prediction:** Implement a "Next Pass" calculator to notify users when a specific satellite will reach its local zenith.
+* **TLE Integration:** Support for **Two-Line Element (TLE)** sets via SGP4 algorithms.
+* **High-Velocity Logic:** Optimize the refresh loop for high-speed objects.
+
+---
+
+## 🖥️ Phase 0.7: Graphical Interface (Future / Deprioritized)
+**Goal:** Migration to a full C++/Qt desktop application.
 
 ---
 
