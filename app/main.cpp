@@ -41,7 +41,7 @@ void CalculationWorker(std::shared_ptr<app::AppState> state,
                        std::shared_ptr<t_calcephbin> ephemeris,
                        std::shared_ptr<app::Logger> logger, bool is_gps,
                        int refresh_ms, std::function<void()> screen_callback) {
-  // Initialize COM for Windows Location API
+  // Initialize COM for this thread
   HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
   engine::AstrometryEngine astrometry_engine;
@@ -90,6 +90,9 @@ void CalculationWorker(std::shared_ptr<app::AppState> state,
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Initialize COM for the main thread (needed for Location API)
+  HRESULT hr_com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
   std::signal(SIGINT, SignalHandler);
 
   CLI::App app{
@@ -131,6 +134,7 @@ int main(int argc, char** argv) {
   if (catalog.empty()) {
     std::cerr << "Error: Could not load catalog from " << catalog_path
               << std::endl;
+    if (SUCCEEDED(hr_com)) CoUninitialize();
     return 1;
   }
 
@@ -176,6 +180,10 @@ int main(int argc, char** argv) {
   if (worker.joinable()) worker.join();
   if (logger) logger->Stop();
   app::ConfigManager::Save("config.toml", config);
+
+  if (SUCCEEDED(hr_com)) {
+    CoUninitialize();
+  }
 
   return 0;
 }

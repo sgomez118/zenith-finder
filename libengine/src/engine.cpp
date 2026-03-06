@@ -20,6 +20,7 @@ extern "C" {
 namespace engine {
 
 struct AstrometryEngine::PrebuiltCatalog {
+  std::vector<cat_entry> star_entries; // Keep entries alive for object pointers
   std::vector<object> stars;
   std::vector<object> planets;
 };
@@ -31,21 +32,38 @@ AstrometryEngine::~AstrometryEngine() = default;
 
 void AstrometryEngine::SetCatalog(std::span<const Star> catalog) {
   star_names_.clear();
+  magnitudes_.clear();
   prebuilt_->stars.clear();
+  prebuilt_->star_entries.clear();
+  
   star_names_.reserve(catalog.size());
+  magnitudes_.reserve(catalog.size());
+  prebuilt_->star_entries.reserve(catalog.size());
   prebuilt_->stars.reserve(catalog.size());
 
   for (const auto& star : catalog) {
     cat_entry catalog_entry;
-    object star_object;
+    
+    // Truncate strings to fit NOVAS buffers (names are 51 chars max)
+    std::string safe_name = star.name.substr(0, 50);
+    std::string safe_cat = star.catalog.substr(0, 3);
+
+    // RA must be in hours (0-24) for NOVAS
+    double ra_hours = star.ra / 15.0;
 
     // Define ICRS coordinates
-    make_cat_entry(star.name.c_str(), star.catalog.c_str(), star.catalog_id,
-                   star.ra, star.dec, star.pmra, star.pmdec, star.parallax,
+    make_cat_entry(safe_name.c_str(), safe_cat.c_str(), star.catalog_id,
+                   ra_hours, star.dec, star.pmra, star.pmdec, star.parallax,
                    star.radial_velocity, &catalog_entry);
-    make_cat_object(&catalog_entry, &star_object);
+    
+    prebuilt_->star_entries.push_back(catalog_entry);
+    
+    object star_object;
+    // Note: make_cat_object stores the pointer to the entry, so we must point to the persistent vector
+    make_cat_object(&prebuilt_->star_entries.back(), &star_object);
 
     star_names_.push_back(star.name);
+    magnitudes_.push_back(star.flux);
     prebuilt_->stars.push_back(star_object);
   }
 }
@@ -67,7 +85,7 @@ void AstrometryEngine::BuildPlanetsCatalog() const {
   for (const auto& p : planets) {
     object planet_object;
     make_planet(p.id, &planet_object);
-    // Ensure the name is set in the object struct
+    // Ensure the name is set in the object struct and truncated safely
     std::strncpy(planet_object.name, p.name, sizeof(planet_object.name) - 1);
     planet_object.name[sizeof(planet_object.name) - 1] = '\0';
     prebuilt_->planets.push_back(planet_object);
@@ -80,11 +98,15 @@ void AstrometryEngine::SetEphemeris(std::shared_ptr<t_calcephbin> ephemeris) {
 }
 
 void AstrometryEngine::InitializeNovas() const {
-  auto result = novas_use_calceph(ephemeris_.get());
-  if (result < 0) {
-    accuracy_ = NOVAS_REDUCED_ACCURACY;
+  if (ephemeris_) {
+    auto result = novas_use_calceph(ephemeris_.get());
+    if (result < 0) {
+      accuracy_ = NOVAS_REDUCED_ACCURACY;
+    } else {
+      accuracy_ = NOVAS_FULL_ACCURACY;
+    }
   } else {
-    accuracy_ = NOVAS_FULL_ACCURACY;
+    accuracy_ = NOVAS_REDUCED_ACCURACY;
   }
   initialized_ = true;
 
@@ -117,11 +139,16 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
                        kDUT1, &t_spec);
 
   // Observer frame
-  novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location, &t_spec,
-                   kPolarOffsetX, kPolarOffsetY, &frame);
+  auto frame_status = novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location, &t_spec,
+                    kPolarOffsetX, kPolarOffsetY, &frame);
+
+  if (frame_status != 0) {
+      return results; // Cannot calculate without a valid frame
+  }
 
   for (auto i : std::views::iota(0ULL, prebuilt_->stars.size())) {
     sky_pos star_position = {0};
+    double az = 0, el = 0;
 
     // Apparent coordinates in system
     auto status =
@@ -130,16 +157,16 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
     if (status != 0) {
       results.emplace_back(CelestialResult{
           .name = star_names_[i],
-          .elevation = 0,
-          .azimuth = 0,
-          .zenith_dist = 0,
+          .elevation = -999.0, // Indication of failure
+          .azimuth = 0.0,
+          .zenith_dist = 0.0,
+          .magnitude = magnitudes_[i],
           .is_rising = false,
       });
       continue;
     }
 
     // Get local horizontal coordinates
-    double az, el;
     novas_app_to_hor(&frame, NOVAS_CIRS, star_position.ra, star_position.dec,
                      novas_standard_refraction, &az, &el);
 
@@ -148,6 +175,7 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
         .elevation = el,
         .azimuth = az,
         .zenith_dist = 90.0 - el,
+        .magnitude = magnitudes_[i],
         .is_rising = false,
     });
   }
@@ -181,14 +209,20 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
                        kDUT1, &t_spec);
 
   // Observer frame
-  novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location, &t_spec,
-                   kPolarOffsetX, kPolarOffsetY, &frame);
+  auto frame_status = novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location, &t_spec,
+                    kPolarOffsetX, kPolarOffsetY, &frame);
+
+  if (frame_status != 0) {
+      return results;
+  }
 
   for (auto i : std::views::iota(0ULL, prebuilt_->planets.size())) {
     sky_pos planet_position = {0};
     // Apparent coordinates in system
     auto status = novas_sky_pos(&prebuilt_->planets[i], &frame, NOVAS_CIRS,
                                 &planet_position);
+
+    if (status != 0) continue;
 
     // Get local horizontal coordinates
     double az = 0, el = 0;

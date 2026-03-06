@@ -18,6 +18,7 @@ class ZenithUI {
  private:
   std::shared_ptr<AppState> state_;
   ftxui::ScreenInteractive screen_;
+  ftxui::Component container_;
 
   ftxui::Element Render();
 };

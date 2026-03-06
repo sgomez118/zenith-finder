@@ -36,6 +36,7 @@ struct CelestialResult {
   double elevation;
   double azimuth;
   double zenith_dist;
+  float magnitude;
   bool is_rising;
 };
 
@@ -82,6 +83,7 @@ class AstrometryEngine {
   void BuildPlanetsCatalog() const;
 
   std::vector<std::string> star_names_;
+  std::vector<float> magnitudes_;
 
   struct PrebuiltCatalog;
   std::unique_ptr<PrebuiltCatalog> prebuilt_;
