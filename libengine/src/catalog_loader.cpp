@@ -55,14 +55,16 @@ std::vector<Star> CatalogLoader::LoadStarDataFromJSON(
   }
 
   try {
-    nlohmann::json j;
-    file >> j;
+    nlohmann::json json;
+    file >> json;
 
-    if (!j.contains("data") || !j["data"].is_array()) {
+    if (!json.contains("data") || !json["data"].is_array()) {
       return catalog;
     }
 
-    for (const auto& item : j["data"]) {
+    catalog.reserve(json["data"].size());
+
+    for (const auto& item : json["data"]) {
       if (!item.is_array() || item.size() < 15) {
         continue;
       }
@@ -74,19 +76,32 @@ std::vector<Star> CatalogLoader::LoadStarDataFromJSON(
       // 13: flux_qual, 14: ids
       star.ra = item[1].is_number() ? item[1].get<double>() : 0.0;
       star.dec = item[2].is_number() ? item[2].get<double>() : 0.0;
-      star.coo_qual = (item[3].is_string() && !item[3].get<std::string>().empty()) ? item[3].get<std::string>()[0] : ' ';
+      star.coo_qual =
+          (item[3].is_string() && !item[3].get<std::string>().empty())
+              ? item[3].get<std::string>()[0]
+              : ' ';
       star.pmra = item[4].is_number() ? item[4].get<double>() : 0.0;
       star.pmdec = item[5].is_number() ? item[5].get<double>() : 0.0;
-      star.pm_qual = (item[6].is_string() && !item[6].get<std::string>().empty()) ? item[6].get<std::string>()[0] : ' ';
+      star.pm_qual =
+          (item[6].is_string() && !item[6].get<std::string>().empty())
+              ? item[6].get<std::string>()[0]
+              : ' ';
       star.parallax = item[7].is_number() ? item[7].get<double>() : 0.0;
-      star.plx_qual = (item[8].is_string() && !item[8].get<std::string>().empty()) ? item[8].get<std::string>()[0] : ' ';
+      star.plx_qual =
+          (item[8].is_string() && !item[8].get<std::string>().empty())
+              ? item[8].get<std::string>()[0]
+              : ' ';
       star.radial_velocity = item[9].is_number() ? item[9].get<double>() : 0.0;
       star.rvz_qual =
-          (item[10].is_string() && !item[10].get<std::string>().empty()) ? item[10].get<std::string>()[0] : ' ';
+          (item[10].is_string() && !item[10].get<std::string>().empty())
+              ? item[10].get<std::string>()[0]
+              : ' ';
       star.flux = item[11].is_number() ? item[11].get<float>() : 0.0f;
       star.flux_err = item[12].is_number() ? item[12].get<float>() : 0.0f;
       star.flux_qual =
-          (item[13].is_string() && !item[13].get<std::string>().empty()) ? item[13].get<std::string>()[0] : ' ';
+          (item[13].is_string() && !item[13].get<std::string>().empty())
+              ? item[13].get<std::string>()[0]
+              : ' ';
       star.ids = item[14].is_string() ? item[14].get<std::string>() : "";
 
       // Parse IDs for better name and Catalog ID
@@ -103,12 +118,27 @@ std::vector<Star> CatalogLoader::LoadStarDataFromJSON(
             } catch (...) {
               star.catalog_id = 0;
             }
+          } else if (star.catalog.empty() && id_token.starts_with("FK5 ")) {
+            star.catalog = "FK5";
+            try {
+              star.catalog_id = std::stol(id_token.substr(4));
+            } catch (...) {
+              star.catalog_id = 0;
+            }
+          } else if (star.catalog.empty() && id_token.starts_with("GC ")) {
+            star.catalog = "GC";
+            try {
+              star.catalog_id = std::stol(id_token.substr(3));
+            } catch (...) {
+              star.catalog_id = 0;
+            }
           }
         }
       }
 
       if (star.name.empty()) {
-        star.name = item[0].is_string() ? item[0].get<std::string>() : "Unknown";
+        star.name =
+            item[0].is_string() ? item[0].get<std::string>() : "Unknown";
       }
 
       catalog.push_back(star);
