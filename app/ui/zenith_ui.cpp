@@ -1,5 +1,6 @@
 #include "zenith_ui.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <format>
@@ -8,7 +9,6 @@
 #include <ftxui/dom/table.hpp>
 #include <numbers>
 #include <string>
-#include <algorithm>
 
 namespace app {
 
@@ -142,12 +142,18 @@ ftxui::Element ZenithUI::RenderStars(
         if (!filter.name_filter.empty()) {
           std::string name_lower = star.name;
           std::string filter_lower = filter.name_filter;
-          std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
-          std::transform(filter_lower.begin(), filter_lower.end(), filter_lower.begin(), ::tolower);
+          std::transform(name_lower.begin(), name_lower.end(),
+                         name_lower.begin(), ::tolower);
+          std::transform(filter_lower.begin(), filter_lower.end(),
+                         filter_lower.begin(), ::tolower);
           if (name_lower.find(filter_lower) == std::string::npos) continue;
         }
-        if (star.elevation < filter.min_elevation || star.elevation > filter.max_elevation) continue;
-        if (star.azimuth < filter.min_azimuth || star.azimuth > filter.max_azimuth) continue;
+        if (star.elevation < filter.min_elevation ||
+            star.elevation > filter.max_elevation)
+          continue;
+        if (star.azimuth < filter.min_azimuth ||
+            star.azimuth > filter.max_azimuth)
+          continue;
       }
 
       auto state_color =
@@ -194,12 +200,18 @@ ftxui::Element ZenithUI::RenderSolar(
         if (!filter.name_filter.empty()) {
           std::string name_lower = body.name;
           std::string filter_lower = filter.name_filter;
-          std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
-          std::transform(filter_lower.begin(), filter_lower.end(), filter_lower.begin(), ::tolower);
+          std::transform(name_lower.begin(), name_lower.end(),
+                         name_lower.begin(), ::tolower);
+          std::transform(filter_lower.begin(), filter_lower.end(),
+                         filter_lower.begin(), ::tolower);
           if (name_lower.find(filter_lower) == std::string::npos) continue;
         }
-        if (body.elevation < filter.min_elevation || body.elevation > filter.max_elevation) continue;
-        if (body.azimuth < filter.min_azimuth || body.azimuth > filter.max_azimuth) continue;
+        if (body.elevation < filter.min_elevation ||
+            body.elevation > filter.max_elevation)
+          continue;
+        if (body.azimuth < filter.min_azimuth ||
+            body.azimuth > filter.max_azimuth)
+          continue;
       }
 
       auto state_color =
@@ -234,84 +246,99 @@ ftxui::Element ZenithUI::RenderRadar(
     const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
     const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
     const FilterCriteria& filter) {
-  auto radar = ftxui::canvas(100, 100, [stars, solar, filter](ftxui::Canvas& c) {
-    int cx = 50;
-    int cy = 50;
-    int r = 45;
+  auto radar =
+      ftxui::canvas(100, 100, [stars, solar, filter](ftxui::Canvas& c) {
+        int cx = 50;
+        int cy = 50;
+        int r = 45;
 
-    for (int i = 0; i < 360; i += 5) {
-      double angle = i * std::numbers::pi / 180.0;
-      int x1 = cx + static_cast<int>(r * std::cos(angle));
-      int y1 = cy + static_cast<int>(r * std::sin(angle));
-      int x2 = cx + static_cast<int>((r + 2) * std::cos(angle));
-      int y2 = cy + static_cast<int>((r + 2) * std::sin(angle));
-      c.DrawBlockLine(x1, y1, x2, y2, ftxui::Color::GrayDark);
-    }
+        for (int i = 0; i < 360; i += 5) {
+          double angle = i * std::numbers::pi / 180.0;
+          int x1 = cx + static_cast<int>(r * std::cos(angle));
+          int y1 = cy + static_cast<int>(r * std::sin(angle));
+          int x2 = cx + static_cast<int>((r + 2) * std::cos(angle));
+          int y2 = cy + static_cast<int>((r + 2) * std::sin(angle));
+          c.DrawBlockLine(x1, y1, x2, y2, ftxui::Color::GrayDark);
+        }
 
-    c.DrawText(cx, cy - r - 5, "N");
-    c.DrawText(cx + r + 5, cy, "E");
-    c.DrawText(cx, cy + r + 5, "S");
-    c.DrawText(cx - r - 8, cy, "W");
+        c.DrawText(cx, cy - r - 5, "N");
+        c.DrawText(cx + r + 5, cy, "E");
+        c.DrawText(cx, cy + r + 5, "S");
+        c.DrawText(cx - r - 8, cy, "W");
 
-    if (stars) {
-      for (const auto& star : *stars) {
-        if (star.elevation < 0) continue;
+        if (stars) {
+          for (const auto& star : *stars) {
+            if (star.elevation < 0) continue;
 
-        // Apply Filter
-        if (filter.active) {
-          if (!filter.name_filter.empty()) {
-            std::string name_lower = star.name;
-            std::string filter_lower = filter.name_filter;
-            std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
-            std::transform(filter_lower.begin(), filter_lower.end(), filter_lower.begin(), ::tolower);
-            if (name_lower.find(filter_lower) == std::string::npos) continue;
+            // Apply Filter
+            if (filter.active) {
+              if (!filter.name_filter.empty()) {
+                std::string name_lower = star.name;
+                std::string filter_lower = filter.name_filter;
+                std::transform(name_lower.begin(), name_lower.end(),
+                               name_lower.begin(), ::tolower);
+                std::transform(filter_lower.begin(), filter_lower.end(),
+                               filter_lower.begin(), ::tolower);
+                if (name_lower.find(filter_lower) == std::string::npos)
+                  continue;
+              }
+              if (star.elevation < filter.min_elevation ||
+                  star.elevation > filter.max_elevation)
+                continue;
+              if (star.azimuth < filter.min_azimuth ||
+                  star.azimuth > filter.max_azimuth)
+                continue;
+            }
+
+            double r_s = r * (star.zenith_dist / 90.0);
+            double az_rad = (star.azimuth - 90.0) * std::numbers::pi / 180.0;
+            int sx = cx + static_cast<int>(r_s * std::cos(az_rad));
+            int sy = cy + static_cast<int>(r_s * std::sin(az_rad));
+
+            if (star.zenith_dist < 2.0) {
+              c.DrawBlockCircle(sx, sy, 2, ftxui::Color::Yellow);
+            } else {
+              c.DrawBlock(sx, sy, true, ftxui::Color::White);
+            }
           }
-          if (star.elevation < filter.min_elevation || star.elevation > filter.max_elevation) continue;
-          if (star.azimuth < filter.min_azimuth || star.azimuth > filter.max_azimuth) continue;
         }
 
-        double r_s = r * (star.zenith_dist / 90.0);
-        double az_rad = (star.azimuth - 90.0) * std::numbers::pi / 180.0;
-        int sx = cx + static_cast<int>(r_s * std::cos(az_rad));
-        int sy = cy + static_cast<int>(r_s * std::sin(az_rad));
+        if (solar) {
+          for (const auto& body : *solar) {
+            if (body.elevation < 0) continue;
 
-        if (star.zenith_dist < 2.0) {
-          c.DrawBlockCircle(sx, sy, 2, ftxui::Color::Yellow);
-        } else {
-          c.DrawBlock(sx, sy, true, ftxui::Color::White);
-        }
-      }
-    }
+            // Apply Filter
+            if (filter.active) {
+              if (!filter.name_filter.empty()) {
+                std::string name_lower = body.name;
+                std::string filter_lower = filter.name_filter;
+                std::transform(name_lower.begin(), name_lower.end(),
+                               name_lower.begin(), ::tolower);
+                std::transform(filter_lower.begin(), filter_lower.end(),
+                               filter_lower.begin(), ::tolower);
+                if (name_lower.find(filter_lower) == std::string::npos)
+                  continue;
+              }
+              if (body.elevation < filter.min_elevation ||
+                  body.elevation > filter.max_elevation)
+                continue;
+              if (body.azimuth < filter.min_azimuth ||
+                  body.azimuth > filter.max_azimuth)
+                continue;
+            }
 
-    if (solar) {
-      for (const auto& body : *solar) {
-        if (body.elevation < 0) continue;
+            double r_b = r * (body.zenith_dist / 90.0);
+            double az_rad = (body.azimuth - 90.0) * std::numbers::pi / 180.0;
+            int bx = cx + static_cast<int>(r_b * std::cos(az_rad));
+            int by = cy + static_cast<int>(r_b * std::sin(az_rad));
 
-        // Apply Filter
-        if (filter.active) {
-          if (!filter.name_filter.empty()) {
-            std::string name_lower = body.name;
-            std::string filter_lower = filter.name_filter;
-            std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
-            std::transform(filter_lower.begin(), filter_lower.end(), filter_lower.begin(), ::tolower);
-            if (name_lower.find(filter_lower) == std::string::npos) continue;
+            auto color = (body.name == "SUN") ? ftxui::Color::Yellow
+                                              : ftxui::Color::Cyan;
+            c.DrawBlockCircle(bx, by, 3, color);
+            c.DrawText(bx + 2, by + 2, body.name);
           }
-          if (body.elevation < filter.min_elevation || body.elevation > filter.max_elevation) continue;
-          if (body.azimuth < filter.min_azimuth || body.azimuth > filter.max_azimuth) continue;
         }
-
-        double r_b = r * (body.zenith_dist / 90.0);
-        double az_rad = (body.azimuth - 90.0) * std::numbers::pi / 180.0;
-        int bx = cx + static_cast<int>(r_b * std::cos(az_rad));
-        int by = cy + static_cast<int>(r_b * std::sin(az_rad));
-
-        auto color =
-            (body.name == "SUN") ? ftxui::Color::Yellow : ftxui::Color::Cyan;
-        c.DrawBlockCircle(bx, by, 3, color);
-        c.DrawText(bx + 2, by + 2, body.name);
-      }
-    }
-  });
+      });
 
   std::string title = " Zenith Radar ";
   if (filter.active) title += "[Filtered] ";
@@ -323,7 +350,7 @@ ftxui::Element ZenithUI::RenderFilterWindow() {
   // NOTE: This is a placeholder. A full interactive filter would require
   // ftxui::Component for Input fields. For now, we'll display the current
   // filter state.
-  
+
   FilterCriteria filter;
   {
     std::lock_guard<std::mutex> lock(state_->filter_mutex);
@@ -333,15 +360,25 @@ ftxui::Element ZenithUI::RenderFilterWindow() {
   auto content = ftxui::vbox({
       ftxui::text("Filter Settings (Press 'f' to close)"),
       ftxui::separator(),
-      ftxui::hbox(ftxui::text("Name: "), ftxui::text(filter.name_filter.empty() ? "None" : filter.name_filter)),
-      ftxui::hbox(ftxui::text("Elevation Range: "), ftxui::text(std::format("[{:.1f}, {:.1f}]", filter.min_elevation, filter.max_elevation))),
-      ftxui::hbox(ftxui::text("Azimuth Range: "), ftxui::text(std::format("[{:.1f}, {:.1f}]", filter.min_azimuth, filter.max_azimuth))),
+      ftxui::hbox(ftxui::text("Name: "),
+                  ftxui::text(filter.name_filter.empty() ? "None"
+                                                         : filter.name_filter)),
+      ftxui::hbox(
+          ftxui::text("Elevation Range: "),
+          ftxui::text(std::format("[{:.1f}, {:.1f}]", filter.min_elevation,
+                                  filter.max_elevation))),
+      ftxui::hbox(
+          ftxui::text("Azimuth Range: "),
+          ftxui::text(std::format("[{:.1f}, {:.1f}]", filter.min_azimuth,
+                                  filter.max_azimuth))),
       ftxui::separator(),
-      ftxui::text(std::format("Active: {}", filter.active ? "YES" : "NO")) | ftxui::color(filter.active ? ftxui::Color::Green : ftxui::Color::Red),
+      ftxui::text(std::format("Active: {}", filter.active ? "YES" : "NO")) |
+          ftxui::color(filter.active ? ftxui::Color::Green : ftxui::Color::Red),
       ftxui::text("Interactive editing coming in v0.5") | ftxui::dim,
   });
 
-  return ftxui::window(ftxui::text(" Filters "), content) | ftxui::size(ftxui::WIDTH, ftxui::GREATER_THAN, 40);
+  return ftxui::window(ftxui::text(" Filters "), content) |
+         ftxui::size(ftxui::WIDTH, ftxui::GREATER_THAN, 40);
 }
 
 }  // namespace app

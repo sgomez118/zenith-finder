@@ -14,7 +14,7 @@ namespace app {
 
 struct FilterCriteria {
   std::string name_filter;
-  float min_elevation = -90.0f;
+  float min_elevation = 0.0f;
   float max_elevation = 90.0f;
   float min_azimuth = 0.0f;
   float max_azimuth = 360.0f;
