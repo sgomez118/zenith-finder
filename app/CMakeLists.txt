@@ -1,5 +1,6 @@
 add_executable(zenith-finder 
     main.cpp
+    app_controller.cpp
     windows_location_provider.cpp
     logger.cpp
     config_manager.cpp
