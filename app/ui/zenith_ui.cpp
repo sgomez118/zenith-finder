@@ -111,9 +111,13 @@ ftxui::Element ZenithUI::Render() {
 
   bool gps_active = state_->gps_active.load();
 
-  auto main_content = ftxui::vflow({
+  auto stars_solar_box = ftxui::vbox({
       RenderStars(stars, filter),
       RenderSolar(solar, filter),
+  });
+
+  auto main_content = ftxui::vflow({
+      stars_solar_box,
       RenderRadar(stars, solar, filter),
       RenderSidebar(loc, gps_active, time_str),
   });
