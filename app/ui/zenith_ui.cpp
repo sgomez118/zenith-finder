@@ -17,40 +17,50 @@ namespace app {
 ZenithUI::ZenithUI(std::shared_ptr<AppState> state)
     : state_(std::move(state)),
       screen_(ftxui::ScreenInteractive::Fullscreen()) {
-  ftxui::MenuOption option;
-  option.on_change = [&] { screen_.Post(ftxui::Event::Custom); };
-  option.entries_option.transform = [](const ftxui::EntryState& state) {
-    auto element = ftxui::text(state.label);
-    if (state.label == "No data available") return element;
+  auto make_menu_option = [&] {
+    ftxui::MenuOption option;
+    option.on_change = [&] { screen_.Post(ftxui::Event::Custom); };
+    option.entries_option.transform = [](const ftxui::EntryState& state) {
+      auto element = ftxui::text(state.label);
+      if (state.label == "No data available") return element;
 
-    size_t last_pipe = state.label.find_last_of('|');
-    if (last_pipe != std::string::npos) {
-      std::string prefix = state.label.substr(0, last_pipe + 1);
-      std::string suffix = state.label.substr(last_pipe + 1);
+      size_t last_pipe = state.label.find_last_of('|');
+      if (last_pipe != std::string::npos) {
+        std::string prefix = state.label.substr(0, last_pipe + 1);
+        std::string suffix = state.label.substr(last_pipe + 1);
 
-      bool is_rising = suffix.find("Rising") != std::string::npos ||
-                       suffix.find("RISING") != std::string::npos;
-      auto color = is_rising ? ftxui::Color::Green : ftxui::Color::Red;
+        bool is_rising = suffix.find("Rising") != std::string::npos ||
+                         suffix.find("RISING") != std::string::npos;
+        auto color = is_rising ? ftxui::Color::Green : ftxui::Color::Red;
 
-      element = ftxui::hbox({
-          ftxui::text(prefix),
-          ftxui::text(suffix) | ftxui::color(color),
-      });
-    }
+        element = ftxui::hbox({
+            ftxui::text(prefix),
+            ftxui::text(suffix) | ftxui::color(color),
+        });
+      }
 
-    if (state.focused) {
-      element |= ftxui::focus;
-      element |= ftxui::inverted;
-    }
-    return element;
+      if (state.focused) {
+        element |= ftxui::focus;
+        element |= ftxui::inverted;
+      }
+      return element;
+    };
+    return option;
   };
-  star_menu_ = ftxui::Menu(&star_entries_, &star_selected_, option);
+
+  star_menu_ = ftxui::Menu(&star_entries_, &star_selected_, make_menu_option());
+  solar_menu_ =
+      ftxui::Menu(&solar_entries_, &solar_selected_, make_menu_option());
 }
 
 void ZenithUI::TriggerRefresh() { screen_.Post(ftxui::Event::Custom); }
 
 void ZenithUI::Run() {
-  auto renderer = ftxui::Renderer(star_menu_, [&] { return Render(); });
+  auto container = ftxui::Container::Vertical({
+      star_menu_,
+      solar_menu_,
+  });
+  auto renderer = ftxui::Renderer(container, [&] { return Render(); });
 
   auto event_handler = ftxui::CatchEvent(renderer, [&](ftxui::Event event) {
     if (event == ftxui::Event::Character('q') ||
@@ -232,13 +242,9 @@ ftxui::Element ZenithUI::RenderStars(
 ftxui::Element ZenithUI::RenderSolar(
     const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
     const FilterCriteria& filter) {
-  std::vector<std::vector<ftxui::Element>> solar_rows = {
-      {ftxui::text("Body") | ftxui::bold,
-       ftxui::text("Elevation") | ftxui::bold,
-       ftxui::text("Azimuth") | ftxui::bold,
-       ftxui::text("Zenith") | ftxui::bold,
-       ftxui::text("Dist (AU)") | ftxui::bold,
-       ftxui::text("State") | ftxui::bold}};
+  solar_entries_.clear();
+  std::vector<engine::SolarBody> filtered_solar;
+
   if (solar) {
     for (const auto& body : *solar) {
       // Apply Filter
@@ -259,37 +265,53 @@ ftxui::Element ZenithUI::RenderSolar(
             body.azimuth > filter.max_azimuth)
           continue;
       }
-
-      auto state_color =
-          body.is_rising ? ftxui::Color::Green : ftxui::Color::Red;
-      std::string state_text = body.is_rising ? "Rising" : "Setting";
-      std::string state_icon = body.is_rising ? std::string(ui::kIconRising)
-                                              : std::string(ui::kIconSetting);
-      solar_rows.push_back({
-          ftxui::text(body.name),
-          ftxui::text(std::format("{:.5f}", body.elevation)),
-          ftxui::text(std::format("{:.5f}", body.azimuth)),
-          ftxui::text(std::format("{:.5f}", body.zenith_dist)),
-          ftxui::text(std::format("{:.5f}", body.distance_au)),
-          ftxui::hbox(
-              {ftxui::text(state_icon + " "), ftxui::text(state_text)}) |
-              ftxui::color(state_color),
-      });
+      filtered_solar.push_back(body);
     }
-  } else {
-    solar_rows.push_back({ftxui::text("No data") | ftxui::dim});
   }
 
-  auto solar_table = ftxui::Table(solar_rows);
-  solar_table.SelectAll().Border(ftxui::LIGHT);
-  solar_table.SelectRow(0).Decorate(ftxui::bold);
-  solar_table.SelectRow(0).SeparatorVertical(ftxui::LIGHT);
-  solar_table.SelectRow(0).Border(ftxui::DOUBLE);
+  // Populate menu entries
+  for (const auto& body : filtered_solar) {
+    std::string state_text = body.is_rising ? "Rising" : "Setting";
+    std::string state_icon = body.is_rising ? std::string(ui::kIconRising)
+                                            : std::string(ui::kIconSetting);
+    solar_entries_.push_back(std::format(
+        "{:<15} | {:>9.5f} | {:>9.5f} | {:>9.5f} | {:>9.5f} | {} {}", body.name,
+        body.elevation, body.azimuth, body.zenith_dist, body.distance_au,
+        state_icon, state_text));
+  }
+
+  if (solar_entries_.empty()) {
+    solar_entries_.push_back("No data available");
+  }
+
+  // Header
+  auto header =
+      ftxui::hbox({
+          ftxui::text("Body") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 15),
+          ftxui::text(" | "),
+          ftxui::text("Elevation") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 9),
+          ftxui::text(" | "),
+          ftxui::text("Azimuth") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 9),
+          ftxui::text(" | "),
+          ftxui::text("Zenith") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 9),
+          ftxui::text(" | "),
+          ftxui::text("Dist (AU)") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 9),
+          ftxui::text(" | "),
+          ftxui::text("State"),
+      }) |
+      ftxui::bold;
 
   std::string title = " Solar System ";
   if (filter.active) title += "[Filtered] ";
 
-  return ftxui::window(ftxui::text(title), solar_table.Render());
+  return ftxui::window(ftxui::text(title),
+                       ftxui::vbox({
+                           header,
+                           ftxui::separator(),
+                           solar_menu_->Render() | ftxui::vscroll_indicator |
+                               ftxui::frame,
+                       })) |
+         ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, 15);
 }
 
 ftxui::Element ZenithUI::RenderRadar(

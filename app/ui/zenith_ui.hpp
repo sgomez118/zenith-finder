@@ -26,6 +26,11 @@ class ZenithUI {
   std::vector<std::string> star_entries_;
   ftxui::Component star_menu_;
 
+  // Solar list scrolling state
+  int solar_selected_ = 0;
+  std::vector<std::string> solar_entries_;
+  ftxui::Component solar_menu_;
+
   ftxui::Element Render();
 
   ftxui::Element RenderSidebar(const engine::Observer& loc, bool gps_active,
