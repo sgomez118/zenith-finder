@@ -65,32 +65,42 @@ ftxui::Element ZenithUI::Render() {
 
   bool gps_active = state_->gps_active.load();
 
-  // Sidebar Content
-  auto sidebar =
-      ftxui::vbox(
-          {ftxui::window(
-               ftxui::text(" Status "),
-               ftxui::vbox({
-                   ftxui::text(std::format("GPS: {}",
-                                           gps_active ? "Active" : "Manual")) |
-                       (gps_active ? ftxui::color(ftxui::Color::Green)
-                                   : ftxui::color(ftxui::Color::Yellow)),
-                   ftxui::text(std::format(
-                       "Log: {}", state_->logging_enabled ? "On" : "Off")),
-                   ftxui::text("Time: " + time_str),
-               }) | ftxui::flex),
-           ftxui::window(
-               ftxui::text(" Location "),
-               ftxui::vbox({
-                   ftxui::text(std::format("Lat: {:.4f} N", loc.latitude)),
-                   ftxui::text(std::format("Lon: {:.4f} E", loc.longitude)),
-                   ftxui::text(std::format("Alt: {:.1f} m", loc.altitude)),
-               })),
-           ftxui::filler(),
-           ftxui::text("Zenith Finder v0.4.0") | ftxui::dim | ftxui::center}) |
-      ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 23);
+  // Main Layout
+  return ftxui::vflow({
+      RenderStars(stars),
+      RenderSolar(solar),
+      RenderRadar(stars, solar),
+      RenderSidebar(loc, gps_active, time_str),
+  });
+}
 
-  // Star Table
+ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
+                                       bool gps_active,
+                                       const std::string& time_str) {
+  return ftxui::vbox(
+      {ftxui::window(
+           ftxui::text(" Status "),
+           ftxui::vbox({
+               ftxui::text(
+                   std::format("GPS: {}", gps_active ? "Active" : "Manual")) |
+                   (gps_active ? ftxui::color(ftxui::Color::Green)
+                               : ftxui::color(ftxui::Color::Yellow)),
+               ftxui::text(std::format("Log: {}",
+                                       state_->logging_enabled ? "On" : "Off")),
+               ftxui::text("Time: " + time_str),
+           })),
+       ftxui::window(
+           ftxui::text(" Location "),
+           ftxui::vbox({
+               ftxui::text(std::format("Lat: {:.4f} N", loc.latitude)),
+               ftxui::text(std::format("Lon: {:.4f} E", loc.longitude)),
+               ftxui::text(std::format("Alt: {:.1f} m", loc.altitude)),
+           })),
+       ftxui::text("Zenith Finder v0.4.0") | ftxui::dim | ftxui::center});
+}
+
+ftxui::Element ZenithUI::RenderStars(
+    const std::shared_ptr<std::vector<engine::CelestialResult>>& stars) {
   std::vector<std::vector<ftxui::Element>> star_rows = {{
       ftxui::text("Star"),
       ftxui::text("Elevation"),
@@ -99,7 +109,7 @@ ftxui::Element ZenithUI::Render() {
       ftxui::text("State"),
   }};
 
-  if (stars) {
+  if (stars && !stars->empty()) {
     for (const auto& star : *stars) {
       if (star.elevation < 0 && !star.is_rising) continue;
       auto state_color =
@@ -123,16 +133,20 @@ ftxui::Element ZenithUI::Render() {
   star_table.SelectRow(0).SeparatorVertical(ftxui::LIGHT);
   star_table.SelectRow(0).Border(ftxui::DOUBLE);
 
-  // Solar Table
+  return ftxui::window(ftxui::text(" Zenith Stars "), star_table.Render());
+}
+
+ftxui::Element ZenithUI::RenderSolar(
+    const std::shared_ptr<std::vector<engine::SolarBody>>& solar) {
   std::vector<std::vector<ftxui::Element>> solar_rows = {
-      {ftxui::text("Body") | ftxui::bold, ftxui::text("Elev") | ftxui::bold,
+      {ftxui::text("Body") | ftxui::bold,
+       ftxui::text("Elevation") | ftxui::bold,
        ftxui::text("Azimuth") | ftxui::bold,
        ftxui::text("Zenith") | ftxui::bold,
        ftxui::text("Dist (AU)") | ftxui::bold,
        ftxui::text("State") | ftxui::bold}};
   if (solar) {
     for (const auto& body : *solar) {
-      if (body.elevation < -12.0) continue;
       auto state_color =
           body.is_rising ? ftxui::Color::Green : ftxui::Color::Red;
       solar_rows.push_back({
@@ -155,7 +169,12 @@ ftxui::Element ZenithUI::Render() {
   solar_table.SelectRow(0).SeparatorVertical(ftxui::LIGHT);
   solar_table.SelectRow(0).Border(ftxui::DOUBLE);
 
-  // Zenith Radar Canvas
+  return ftxui::window(ftxui::text(" Solar System "), solar_table.Render());
+}
+
+ftxui::Element ZenithUI::RenderRadar(
+    const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
+    const std::shared_ptr<std::vector<engine::SolarBody>>& solar) {
   auto radar = ftxui::canvas(100, 100, [stars, solar](ftxui::Canvas& c) {
     int cx = 50;
     int cy = 50;
@@ -176,12 +195,8 @@ ftxui::Element ZenithUI::Render() {
     c.DrawText(cx - r - 8, cy, "W");
 
     if (stars) {
-      int count = 0;
       for (const auto& star : *stars) {
         if (star.elevation < 0) continue;
-        if (++count > 500)
-          break;  // Limit to 500 brightest visible stars for performance
-
         double r_s = r * (star.zenith_dist / 90.0);
         double az_rad = (star.azimuth - 90.0) * std::numbers::pi / 180.0;
         int sx = cx + static_cast<int>(r_s * std::cos(az_rad));
@@ -211,25 +226,7 @@ ftxui::Element ZenithUI::Render() {
     }
   });
 
-  // Main Layout
-  return ftxui::hbox({
-             sidebar,
-             ftxui::separator(),
-             ftxui::vbox({
-                 ftxui::hbox({
-                     ftxui::window(ftxui::text(" Zenith Stars "),
-                                   star_table.Render()) |
-                         ftxui::flex,
-                     ftxui::window(ftxui::text(" Zenith Radar "),
-                                   radar | ftxui::center) |
-                         ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 60),
-                 }) | ftxui::flex,
-                 ftxui::window(ftxui::text(" Solar System "),
-                               solar_table.Render()) |
-                     ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 10),
-             }) | ftxui::flex,
-         }) |
-         ftxui::border;
+  return ftxui::window(ftxui::text(" Zenith Radar "), radar | ftxui::center);
 }
 
 }  // namespace app

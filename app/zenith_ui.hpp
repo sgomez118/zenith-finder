@@ -20,6 +20,16 @@ class ZenithUI {
   ftxui::ScreenInteractive screen_;
 
   ftxui::Element Render();
+
+  ftxui::Element RenderSidebar(const engine::Observer& loc, bool gps_active,
+                               const std::string& time_str);
+  ftxui::Element RenderStars(
+      const std::shared_ptr<std::vector<engine::CelestialResult>>& stars);
+  ftxui::Element RenderSolar(
+      const std::shared_ptr<std::vector<engine::SolarBody>>& solar);
+  ftxui::Element RenderRadar(
+      const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
+      const std::shared_ptr<std::vector<engine::SolarBody>>& solar);
 };
 
 }  // namespace app
