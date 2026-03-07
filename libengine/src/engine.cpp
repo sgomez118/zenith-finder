@@ -20,7 +20,7 @@ extern "C" {
 namespace engine {
 
 struct AstrometryEngine::PrebuiltCatalog {
-  std::vector<cat_entry> star_entries; // Keep entries alive for object pointers
+  std::vector<cat_entry> star_entries;
   std::vector<object> stars;
   std::vector<object> planets;
 };
@@ -35,7 +35,7 @@ void AstrometryEngine::SetCatalog(std::span<const Star> catalog) {
   magnitudes_.clear();
   prebuilt_->stars.clear();
   prebuilt_->star_entries.clear();
-  
+
   star_names_.reserve(catalog.size());
   magnitudes_.reserve(catalog.size());
   prebuilt_->star_entries.reserve(catalog.size());
@@ -43,23 +43,21 @@ void AstrometryEngine::SetCatalog(std::span<const Star> catalog) {
 
   for (const auto& star : catalog) {
     cat_entry catalog_entry;
-    
+
     // Truncate strings to fit NOVAS buffers (names are 51 chars max)
     std::string safe_name = star.name.substr(0, 50);
     std::string safe_cat = star.catalog.substr(0, 3);
 
-    // RA must be in hours (0-24) for NOVAS
-    double ra_hours = star.ra / 15.0;
-
     // Define ICRS coordinates
     make_cat_entry(safe_name.c_str(), safe_cat.c_str(), star.catalog_id,
-                   ra_hours, star.dec, star.pmra, star.pmdec, star.parallax,
+                   star.ra, star.dec, star.pmra, star.pmdec, star.parallax,
                    star.radial_velocity, &catalog_entry);
-    
+
     prebuilt_->star_entries.push_back(catalog_entry);
-    
+
     object star_object;
-    // Note: make_cat_object stores the pointer to the entry, so we must point to the persistent vector
+    // Note: make_cat_object stores the pointer to the entry, so we must point
+    // to the persistent vector
     make_cat_object(&prebuilt_->star_entries.back(), &star_object);
 
     star_names_.push_back(star.name);
@@ -82,11 +80,12 @@ void AstrometryEngine::BuildPlanetsCatalog() const {
   prebuilt_->planets.clear();
   prebuilt_->planets.reserve(std::size(planets));
 
-  for (const auto& p : planets) {
+  for (const auto& planet : planets) {
     object planet_object;
-    make_planet(p.id, &planet_object);
+    make_planet(planet.id, &planet_object);
     // Ensure the name is set in the object struct and truncated safely
-    std::strncpy(planet_object.name, p.name, sizeof(planet_object.name) - 1);
+    std::strncpy(planet_object.name, planet.name,
+                 sizeof(planet_object.name) - 1);
     planet_object.name[sizeof(planet_object.name) - 1] = '\0';
     prebuilt_->planets.push_back(planet_object);
   }
@@ -139,12 +138,23 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
                        kDUT1, &t_spec);
 
   // Observer frame
-  auto frame_status = novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location, &t_spec,
-                    kPolarOffsetX, kPolarOffsetY, &frame);
+  auto frame_status =
+      novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location,
+                       &t_spec, kPolarOffsetX, kPolarOffsetY, &frame);
 
   if (frame_status != 0) {
-      return results; // Cannot calculate without a valid frame
+    return results;  // Cannot calculate without a valid frame
   }
+
+  // Prepare a future frame to determine if objects are rising or setting
+  novas_timespec t_spec_future;
+  novas_frame frame_future;
+  auto jd_future = GetJulianDayParts(time + std::chrono::minutes(1));
+  novas_set_split_time(NOVAS_UTC, jd_future.day_number, jd_future.fraction,
+                       kLeapSeconds, kDUT1, &t_spec_future);
+  auto frame_future_status = novas_make_frame(
+      static_cast<novas_accuracy>(accuracy_), &location, &t_spec_future,
+      kPolarOffsetX, kPolarOffsetY, &frame_future);
 
   for (auto i : std::views::iota(0ULL, prebuilt_->stars.size())) {
     sky_pos star_position = {0};
@@ -155,14 +165,6 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
         novas_sky_pos(&prebuilt_->stars[i], &frame, NOVAS_CIRS, &star_position);
 
     if (status != 0) {
-      results.emplace_back(CelestialResult{
-          .name = star_names_[i],
-          .elevation = -999.0, // Indication of failure
-          .azimuth = 0.0,
-          .zenith_dist = 0.0,
-          .magnitude = magnitudes_[i],
-          .is_rising = false,
-      });
       continue;
     }
 
@@ -170,13 +172,28 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
     novas_app_to_hor(&frame, NOVAS_CIRS, star_position.ra, star_position.dec,
                      novas_standard_refraction, &az, &el);
 
+    // Filter out objects below the horizon
+    if (el < 0) {
+      continue;
+    }
+
+    // Determine if the star is rising by comparing to the future frame
+    bool rising = false;
+    if (frame_future_status == 0) {
+      double az_f = 0, el_f = 0;
+      novas_app_to_hor(&frame_future, NOVAS_CIRS, star_position.ra,
+                       star_position.dec, novas_standard_refraction, &az_f,
+                       &el_f);
+      rising = (el_f > el);
+    }
+
     results.emplace_back(CelestialResult{
         .name = star_names_[i],
         .elevation = el,
         .azimuth = az,
         .zenith_dist = 90.0 - el,
         .magnitude = magnitudes_[i],
-        .is_rising = false,
+        .is_rising = rising,
     });
   }
 
@@ -209,12 +226,23 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
                        kDUT1, &t_spec);
 
   // Observer frame
-  auto frame_status = novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location, &t_spec,
-                    kPolarOffsetX, kPolarOffsetY, &frame);
+  auto frame_status =
+      novas_make_frame(static_cast<novas_accuracy>(accuracy_), &location,
+                       &t_spec, kPolarOffsetX, kPolarOffsetY, &frame);
 
   if (frame_status != 0) {
-      return results;
+    return results;
   }
+
+  // Prepare a future frame to determine if objects are rising or setting
+  novas_timespec t_spec_future;
+  novas_frame frame_future;
+  auto jd_future = GetJulianDayParts(time + std::chrono::seconds(1));
+  novas_set_split_time(NOVAS_UTC, jd_future.day_number, jd_future.fraction,
+                       kLeapSeconds, kDUT1, &t_spec_future);
+  auto frame_future_status = novas_make_frame(
+      static_cast<novas_accuracy>(accuracy_), &location, &t_spec_future,
+      kPolarOffsetX, kPolarOffsetY, &frame_future);
 
   for (auto i : std::views::iota(0ULL, prebuilt_->planets.size())) {
     sky_pos planet_position = {0};
@@ -229,13 +257,28 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     novas_app_to_hor(&frame, NOVAS_CIRS, planet_position.ra,
                      planet_position.dec, novas_standard_refraction, &az, &el);
 
+    // Filter out objects below the horizon
+    if (el < 0) {
+      continue;
+    }
+
+    // Determine if the planet is rising by comparing to the future frame
+    bool rising = false;
+    if (frame_future_status == 0) {
+      double az_f = 0, el_f = 0;
+      novas_app_to_hor(&frame_future, NOVAS_CIRS, planet_position.ra,
+                       planet_position.dec, novas_standard_refraction, &az_f,
+                       &el_f);
+      rising = (el_f > el);
+    }
+
     results.emplace_back(SolarBody{
         .name = prebuilt_->planets[i].name,
         .elevation = el,
         .azimuth = az,
         .zenith_dist = 90.0 - el,
         .distance_au = planet_position.dis,
-        .is_rising = false,
+        .is_rising = rising,
     });
   }
 

@@ -21,32 +21,41 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
     engine.SetCatalog(mock_catalog);
     auto results = engine.CalculateZenithProximity(obs, now);
 
-    if (!results.empty()) {
-      REQUIRE(results.size() == mock_catalog.size());
-      for (size_t i = 0; i < results.size(); ++i) {
-        REQUIRE(results[i].name == mock_catalog[i].name);
-        REQUIRE(results[i].azimuth >= 0.0);
-        REQUIRE(results[i].azimuth < 360.0);
-        REQUIRE(results[i].elevation >= -90.0);
-        REQUIRE(results[i].elevation <= 90.0);
-        REQUIRE_THAT(
-            results[i].zenith_dist,
-            Catch::Matchers::WithinAbs(90.0 - results[i].elevation, 0.001));
-      }
+    // Some stars might be below horizon depending on the time of day
+    REQUIRE(results.size() <= mock_catalog.size());
+    for (const auto& result : results) {
+      REQUIRE(result.azimuth >= 0.0);
+      REQUIRE(result.azimuth < 360.0);
+      REQUIRE(result.elevation >= 0.0); // Now that we filter
+      REQUIRE(result.elevation <= 90.0);
+      REQUIRE_THAT(
+          result.zenith_dist,
+          Catch::Matchers::WithinAbs(90.0 - result.elevation, 0.001));
     }
   }
 
-  SECTION("Coordinate Drift Test (Time-based)") {
-    auto t1 = now;
-    auto t2 = t1 + std::chrono::seconds(10);
-
+  SECTION("Rising/Setting trend check") {
     AstrometryEngine engine;
     engine.SetCatalog(mock_catalog);
-    auto res1 = engine.CalculateZenithProximity(obs, t1);
-    auto res2 = engine.CalculateZenithProximity(obs, t2);
+    auto res = engine.CalculateZenithProximity(obs, now);
 
-    if (!res1.empty() && !res2.empty()) {
-      REQUIRE(res1[0].azimuth != res2[0].azimuth);
+    if (!res.empty()) {
+      auto t_future = now + std::chrono::seconds(10);
+      auto res_future = engine.CalculateZenithProximity(obs, t_future);
+
+      if (!res_future.empty()) {
+        for (size_t i = 0; i < res.size(); ++i) {
+          // Find the same star in res_future (might be skipped if it set)
+          auto it = std::find_if(res_future.begin(), res_future.end(),
+                                [&](const CelestialResult& r) {
+                                  return r.name == res[i].name;
+                                });
+          if (it != res_future.end()) {
+            bool actually_rising = it->elevation > res[i].elevation;
+            REQUIRE(res[i].is_rising == actually_rising);
+          }
+        }
+      }
     }
   }
 }
