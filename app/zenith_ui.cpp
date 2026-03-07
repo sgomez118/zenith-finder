@@ -109,7 +109,8 @@ ftxui::Element ZenithUI::Render() {
           ftxui::text(std::format("{:.3f}", star.elevation)),
           ftxui::text(std::format("{:.3f}", star.azimuth)),
           ftxui::text(std::format("{:.3f}", star.magnitude)),
-          ftxui::text(star.is_rising ? "RISING" : "SETTING"),
+          ftxui::text(star.is_rising ? "RISING" : "SETTING") |
+              ftxui::color(state_color),
       });
     }
   } else {
