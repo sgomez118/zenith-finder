@@ -4,6 +4,8 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "../app_state.hpp"
 
@@ -18,6 +20,11 @@ class ZenithUI {
  private:
   std::shared_ptr<AppState> state_;
   ftxui::ScreenInteractive screen_;
+  
+  // Star list scrolling state
+  int star_selected_ = 0;
+  std::vector<std::string> star_entries_;
+  ftxui::Component star_menu_;
 
   ftxui::Element Render();
 

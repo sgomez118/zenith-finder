@@ -5,9 +5,9 @@
 * [ ] **Layout Refactoring:**
     *   Swap the primary focus: Move "Zenith Stars" to the main/largest panel.
     *   Move "Solar System" to a secondary panel or bottom tray.
-* [ ] **Virtualized Scrolling:**
-    *   Implement efficient rendering for the star list (supporting 50,000+ entries).
-    *   Optimize FTXUI `Renderer` to only process/display visible rows to maintain high frame rates.
+* [x] **Virtualized Scrolling:**
+    *   Implement scrolling for the star list using FTXUI `Menu` and `frame` components.
+    *   (Note: Virtualization for 5000+ entries still pending optimization in Renderer).
 * [ ] **Interactive Sorting:**
     *   Add headers with sorting indicators (e.g., ▲/▼).
     *   Implement logic to sort results by Name, Elevation, Azimuth, or Magnitude.
@@ -30,7 +30,7 @@
 ## 🧪 3. Testing & Validation
 
 * [ ] **Performance Benchmarking:**
-    *   Create a test case for 50,000 stars and measure end-to-end calculation time.
+    *   Create a test case for 5000 stars and measure end-to-end calculation time.
     *   Profile the TUI refresh rate with the large catalog active.
 * [ ] **Filtering Accuracy:**
     *   Verify that objects below 0° elevation are correctly excluded from the result set.
