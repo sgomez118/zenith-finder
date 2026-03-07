@@ -10,6 +10,8 @@
 #include <numbers>
 #include <string>
 
+#include "ui_style.hpp"
+
 namespace app {
 
 ZenithUI::ZenithUI(std::shared_ptr<AppState> state)
@@ -17,6 +19,31 @@ ZenithUI::ZenithUI(std::shared_ptr<AppState> state)
       screen_(ftxui::ScreenInteractive::Fullscreen()) {
   ftxui::MenuOption option;
   option.on_change = [&] { screen_.Post(ftxui::Event::Custom); };
+  option.entries_option.transform = [](const ftxui::EntryState& state) {
+    auto element = ftxui::text(state.label);
+    if (state.label == "No data available") return element;
+
+    size_t last_pipe = state.label.find_last_of('|');
+    if (last_pipe != std::string::npos) {
+      std::string prefix = state.label.substr(0, last_pipe + 1);
+      std::string suffix = state.label.substr(last_pipe + 1);
+
+      bool is_rising = suffix.find("Rising") != std::string::npos ||
+                       suffix.find("RISING") != std::string::npos;
+      auto color = is_rising ? ftxui::Color::Green : ftxui::Color::Red;
+
+      element = ftxui::hbox({
+          ftxui::text(prefix),
+          ftxui::text(suffix) | ftxui::color(color),
+      });
+    }
+
+    if (state.focused) {
+      element |= ftxui::focus;
+      element |= ftxui::inverted;
+    }
+    return element;
+  };
   star_menu_ = ftxui::Menu(&star_entries_, &star_selected_, option);
 }
 
@@ -134,8 +161,6 @@ ftxui::Element ZenithUI::RenderStars(
 
   if (stars) {
     for (const auto& star : *stars) {
-      if (star.elevation < 0 && !star.is_rising) continue;
-
       // Apply Filter
       if (filter.active) {
         if (!filter.name_filter.empty()) {
@@ -160,10 +185,12 @@ ftxui::Element ZenithUI::RenderStars(
 
   // Populate menu entries
   for (const auto& star : filtered_stars) {
-    star_entries_.push_back(
-        std::format("{:<15} | {:>9.5f} | {:>9.5f} | {:>9.3f} | {}", star.name,
-                    star.elevation, star.azimuth, star.magnitude,
-                    star.is_rising ? "RISING" : "SETTING"));
+    std::string state_text = star.is_rising ? "Rising" : "Setting";
+    std::string state_icon = star.is_rising ? std::string(ui::kIconRising)
+                                            : std::string(ui::kIconSetting);
+    star_entries_.push_back(std::format(
+        "{:<15} | {:>9.5f} | {:>9.5f} | {:>9.3f} | {} {}", star.name,
+        star.elevation, star.azimuth, star.magnitude, state_icon, state_text));
   }
 
   if (star_entries_.empty()) {
@@ -173,7 +200,7 @@ ftxui::Element ZenithUI::RenderStars(
   // Header
   auto header =
       ftxui::hbox({
-          ftxui::text("  Star") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 17),
+          ftxui::text("Star") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 15),
           ftxui::text(" | "),
           ftxui::text("Elevation") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 9),
           ftxui::text(" | "),
@@ -189,12 +216,13 @@ ftxui::Element ZenithUI::RenderStars(
   if (filter.active) title += "[Filtered] ";
 
   return ftxui::window(
-      ftxui::text(title),
-      ftxui::vbox({
-          header,
-          ftxui::separator(),
-          star_menu_->Render() | ftxui::vscroll_indicator | ftxui::frame,
-      }));
+             ftxui::text(title),
+             ftxui::vbox({
+                 header,
+                 ftxui::separator(),
+                 star_menu_->Render() | ftxui::vscroll_indicator | ftxui::frame,
+             })) |
+         ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, 27);
 }
 
 ftxui::Element ZenithUI::RenderSolar(
@@ -230,13 +258,17 @@ ftxui::Element ZenithUI::RenderSolar(
 
       auto state_color =
           body.is_rising ? ftxui::Color::Green : ftxui::Color::Red;
+      std::string state_text = body.is_rising ? "Rising" : "Setting";
+      std::string state_icon = body.is_rising ? std::string(ui::kIconRising)
+                                              : std::string(ui::kIconSetting);
       solar_rows.push_back({
           ftxui::text(body.name),
           ftxui::text(std::format("{:.5f}", body.elevation)),
           ftxui::text(std::format("{:.5f}", body.azimuth)),
           ftxui::text(std::format("{:.5f}", body.zenith_dist)),
           ftxui::text(std::format("{:.5f}", body.distance_au)),
-          ftxui::text(body.is_rising ? "RISING" : "SETTING") |
+          ftxui::hbox(
+              {ftxui::text(state_icon + " "), ftxui::text(state_text)}) |
               ftxui::color(state_color),
       });
     }
