@@ -6,11 +6,12 @@ Zenith Finder is a high-performance C++20 TUI application designed for precise l
 ## Core Features
 1.  **Zenith Radar**: A real-time 2D polar projection of the sky, highlighting stars and planets directly above you.
 2.  **Solar System Tracking**: Accurate positions for the Sun, Moon, and all major planets (Mercury through Neptune).
-3.  **Live Dashboard**: A 1Hz refresh loop providing a real-time "live" view of the sky.
-4.  **Automatic GPS Integration**: Detects your coordinates automatically via the Windows Location API.
-5.  **Dynamic Star Catalog**: Loads external star data from JSON or CSV formats.
-6.  **Configurable**: Settings for observer location, refresh rates, and data paths via `config.toml`.
-7.  **Data Logging**: Optional logging of celestial results to timestamped CSV files for external analysis.
+3.  **Interactive Navigation**: Scrollable celestial lists with keyboard and mouse wheel support for exploring large star catalogs.
+4.  **Live Dashboard**: A 1Hz refresh loop providing a real-time "live" view of the sky.
+5.  **Automatic GPS Integration**: Detects your coordinates automatically via the Windows Location API.
+6.  **Dynamic Star Catalog**: Loads external star data from JSON or CSV formats.
+7.  **Configurable**: Settings for observer location, refresh rates, and data paths via `config.toml`.
+8.  **Data Logging**: Optional logging of celestial results to timestamped CSV files for external analysis.
 
 ## Technical Stack
 *   **Language**: C++20 (utilizing `<chrono>`, `std::format`, and `<numbers>`)
@@ -80,3 +81,5 @@ Run the executable from the project root.
 
 ### Key Bindings:
 *   `q`: Quit the application.
+*   `f`: Toggle filter settings window.
+*   `Up/Down Arrows` or `Mouse Wheel`: Scroll the Zenith Stars list.
