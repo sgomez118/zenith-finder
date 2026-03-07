@@ -37,11 +37,14 @@ path = 'stars.json'
 ```
 
 ### 2. Star Catalog
-The application requires a catalog of stars. You can use the provided `stars.json` or generate a CSV catalog from the HYG database:
-```bash
-python scripts/fetch_catalog.py
-```
-This generates `stars.csv` in the root directory. You can configure the path in `config.toml` or via CLI.
+The application requires a catalog of stars. You can use the provided `stars.json` or fetch fresh data from SIMBAD:
+
+#### SIMBAD ADQL Query (Recommended)
+1.  Visit the [SIMBAD TAP Service](https://simbad.cds.unistra.fr/simbad-tap/).
+2.  Copy the SQL query from `scripts/top_5000.sql`.
+3.  Execute the query on the website and download the results as a **JSON** file.
+4.  Place the file in the project root (e.g., as `stars.json`).
+5.  *Tip: You can adjust the `TOP 5000` value in the SQL script if you prefer a larger or smaller dataset.*
 
 ### 3. Planetary Ephemeris (Recommended)
 For high-precision tracking of all planets, you should provide a JPL binary ephemeris file (e.g., DE442, DE421, or DE405).
