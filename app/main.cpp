@@ -13,7 +13,7 @@
 
 #include "app_controller.hpp"
 #include "config_manager.hpp"
-#include "zenith_ui.hpp"
+#include "ui/zenith_ui.hpp"
 
 namespace {
 std::shared_ptr<app::AppController> global_controller;

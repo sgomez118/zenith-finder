@@ -5,7 +5,7 @@
 #include <ftxui/component/screen_interactive.hpp>
 #include <memory>
 
-#include "app_state.hpp"
+#include "../app_state.hpp"
 
 namespace app {
 
@@ -24,12 +24,16 @@ class ZenithUI {
   ftxui::Element RenderSidebar(const engine::Observer& loc, bool gps_active,
                                const std::string& time_str);
   ftxui::Element RenderStars(
-      const std::shared_ptr<std::vector<engine::CelestialResult>>& stars);
+      const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
+      const FilterCriteria& filter);
   ftxui::Element RenderSolar(
-      const std::shared_ptr<std::vector<engine::SolarBody>>& solar);
+      const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
+      const FilterCriteria& filter);
   ftxui::Element RenderRadar(
       const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
-      const std::shared_ptr<std::vector<engine::SolarBody>>& solar);
+      const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
+      const FilterCriteria& filter);
+  ftxui::Element RenderFilterWindow();
 };
 
 }  // namespace app

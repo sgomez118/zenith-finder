@@ -5,11 +5,21 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include "engine.hpp"
 
 namespace app {
+
+struct FilterCriteria {
+  std::string name_filter;
+  float min_elevation = -90.0f;
+  float max_elevation = 90.0f;
+  float min_azimuth = 0.0f;
+  float max_azimuth = 360.0f;
+  bool active = false;
+};
 
 struct AppState {
   std::atomic<bool> running{true};
@@ -23,6 +33,10 @@ struct AppState {
   std::shared_ptr<std::vector<engine::CelestialResult>> latest_star_results;
   std::shared_ptr<std::vector<engine::SolarBody>> latest_solar_results;
   std::chrono::system_clock::time_point last_calc_time;
+
+  std::mutex filter_mutex;
+  FilterCriteria filter;
+  bool show_filter_window = false;
 };
 
 }  // namespace app

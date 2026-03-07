@@ -8,6 +8,7 @@
 #include <ftxui/dom/table.hpp>
 #include <numbers>
 #include <string>
+#include <algorithm>
 
 namespace app {
 
@@ -25,6 +26,12 @@ void ZenithUI::Run() {
         event == ftxui::Event::Character('Q')) {
       screen_.Exit();
       state_->running = false;
+      return true;
+    }
+    if (event == ftxui::Event::Character('f') ||
+        event == ftxui::Event::Character('F')) {
+      std::lock_guard<std::mutex> lock(state_->filter_mutex);
+      state_->show_filter_window = !state_->show_filter_window;
       return true;
     }
     return false;
@@ -51,6 +58,14 @@ ftxui::Element ZenithUI::Render() {
     time = state_->last_calc_time;
   }
 
+  FilterCriteria filter;
+  bool show_filter = false;
+  {
+    std::lock_guard<std::mutex> lock(state_->filter_mutex);
+    filter = state_->filter;
+    show_filter = state_->show_filter_window;
+  }
+
   // Time Formatting
   std::string time_str = "N/A";
   if (time != std::chrono::system_clock::time_point{}) {
@@ -65,13 +80,21 @@ ftxui::Element ZenithUI::Render() {
 
   bool gps_active = state_->gps_active.load();
 
-  // Main Layout
-  return ftxui::vflow({
-      RenderStars(stars),
-      RenderSolar(solar),
-      RenderRadar(stars, solar),
+  auto main_content = ftxui::vflow({
+      RenderStars(stars, filter),
+      RenderSolar(solar, filter),
+      RenderRadar(stars, solar, filter),
       RenderSidebar(loc, gps_active, time_str),
   });
+
+  if (show_filter) {
+    return ftxui::dbox({
+        main_content,
+        RenderFilterWindow() | ftxui::clear_under | ftxui::center,
+    });
+  }
+
+  return main_content;
 }
 
 ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
@@ -100,7 +123,8 @@ ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
 }
 
 ftxui::Element ZenithUI::RenderStars(
-    const std::shared_ptr<std::vector<engine::CelestialResult>>& stars) {
+    const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
+    const FilterCriteria& filter) {
   std::vector<std::vector<ftxui::Element>> star_rows = {{
       ftxui::text("Star"),
       ftxui::text("Elevation"),
@@ -109,9 +133,23 @@ ftxui::Element ZenithUI::RenderStars(
       ftxui::text("State"),
   }};
 
-  if (stars && !stars->empty()) {
+  if (stars) {
     for (const auto& star : *stars) {
       if (star.elevation < 0 && !star.is_rising) continue;
+
+      // Apply Filter
+      if (filter.active) {
+        if (!filter.name_filter.empty()) {
+          std::string name_lower = star.name;
+          std::string filter_lower = filter.name_filter;
+          std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
+          std::transform(filter_lower.begin(), filter_lower.end(), filter_lower.begin(), ::tolower);
+          if (name_lower.find(filter_lower) == std::string::npos) continue;
+        }
+        if (star.elevation < filter.min_elevation || star.elevation > filter.max_elevation) continue;
+        if (star.azimuth < filter.min_azimuth || star.azimuth > filter.max_azimuth) continue;
+      }
+
       auto state_color =
           star.is_rising ? ftxui::Color::Green : ftxui::Color::Red;
       star_rows.push_back({
@@ -133,11 +171,15 @@ ftxui::Element ZenithUI::RenderStars(
   star_table.SelectRow(0).SeparatorVertical(ftxui::LIGHT);
   star_table.SelectRow(0).Border(ftxui::DOUBLE);
 
-  return ftxui::window(ftxui::text(" Zenith Stars "), star_table.Render());
+  std::string title = " Zenith Stars ";
+  if (filter.active) title += "[Filtered] ";
+
+  return ftxui::window(ftxui::text(title), star_table.Render());
 }
 
 ftxui::Element ZenithUI::RenderSolar(
-    const std::shared_ptr<std::vector<engine::SolarBody>>& solar) {
+    const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
+    const FilterCriteria& filter) {
   std::vector<std::vector<ftxui::Element>> solar_rows = {
       {ftxui::text("Body") | ftxui::bold,
        ftxui::text("Elevation") | ftxui::bold,
@@ -147,6 +189,19 @@ ftxui::Element ZenithUI::RenderSolar(
        ftxui::text("State") | ftxui::bold}};
   if (solar) {
     for (const auto& body : *solar) {
+      // Apply Filter
+      if (filter.active) {
+        if (!filter.name_filter.empty()) {
+          std::string name_lower = body.name;
+          std::string filter_lower = filter.name_filter;
+          std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
+          std::transform(filter_lower.begin(), filter_lower.end(), filter_lower.begin(), ::tolower);
+          if (name_lower.find(filter_lower) == std::string::npos) continue;
+        }
+        if (body.elevation < filter.min_elevation || body.elevation > filter.max_elevation) continue;
+        if (body.azimuth < filter.min_azimuth || body.azimuth > filter.max_azimuth) continue;
+      }
+
       auto state_color =
           body.is_rising ? ftxui::Color::Green : ftxui::Color::Red;
       solar_rows.push_back({
@@ -169,13 +224,17 @@ ftxui::Element ZenithUI::RenderSolar(
   solar_table.SelectRow(0).SeparatorVertical(ftxui::LIGHT);
   solar_table.SelectRow(0).Border(ftxui::DOUBLE);
 
-  return ftxui::window(ftxui::text(" Solar System "), solar_table.Render());
+  std::string title = " Solar System ";
+  if (filter.active) title += "[Filtered] ";
+
+  return ftxui::window(ftxui::text(title), solar_table.Render());
 }
 
 ftxui::Element ZenithUI::RenderRadar(
     const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
-    const std::shared_ptr<std::vector<engine::SolarBody>>& solar) {
-  auto radar = ftxui::canvas(100, 100, [stars, solar](ftxui::Canvas& c) {
+    const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
+    const FilterCriteria& filter) {
+  auto radar = ftxui::canvas(100, 100, [stars, solar, filter](ftxui::Canvas& c) {
     int cx = 50;
     int cy = 50;
     int r = 45;
@@ -197,6 +256,20 @@ ftxui::Element ZenithUI::RenderRadar(
     if (stars) {
       for (const auto& star : *stars) {
         if (star.elevation < 0) continue;
+
+        // Apply Filter
+        if (filter.active) {
+          if (!filter.name_filter.empty()) {
+            std::string name_lower = star.name;
+            std::string filter_lower = filter.name_filter;
+            std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
+            std::transform(filter_lower.begin(), filter_lower.end(), filter_lower.begin(), ::tolower);
+            if (name_lower.find(filter_lower) == std::string::npos) continue;
+          }
+          if (star.elevation < filter.min_elevation || star.elevation > filter.max_elevation) continue;
+          if (star.azimuth < filter.min_azimuth || star.azimuth > filter.max_azimuth) continue;
+        }
+
         double r_s = r * (star.zenith_dist / 90.0);
         double az_rad = (star.azimuth - 90.0) * std::numbers::pi / 180.0;
         int sx = cx + static_cast<int>(r_s * std::cos(az_rad));
@@ -213,6 +286,20 @@ ftxui::Element ZenithUI::RenderRadar(
     if (solar) {
       for (const auto& body : *solar) {
         if (body.elevation < 0) continue;
+
+        // Apply Filter
+        if (filter.active) {
+          if (!filter.name_filter.empty()) {
+            std::string name_lower = body.name;
+            std::string filter_lower = filter.name_filter;
+            std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
+            std::transform(filter_lower.begin(), filter_lower.end(), filter_lower.begin(), ::tolower);
+            if (name_lower.find(filter_lower) == std::string::npos) continue;
+          }
+          if (body.elevation < filter.min_elevation || body.elevation > filter.max_elevation) continue;
+          if (body.azimuth < filter.min_azimuth || body.azimuth > filter.max_azimuth) continue;
+        }
+
         double r_b = r * (body.zenith_dist / 90.0);
         double az_rad = (body.azimuth - 90.0) * std::numbers::pi / 180.0;
         int bx = cx + static_cast<int>(r_b * std::cos(az_rad));
@@ -226,7 +313,35 @@ ftxui::Element ZenithUI::RenderRadar(
     }
   });
 
-  return ftxui::window(ftxui::text(" Zenith Radar "), radar | ftxui::center);
+  std::string title = " Zenith Radar ";
+  if (filter.active) title += "[Filtered] ";
+
+  return ftxui::window(ftxui::text(title), radar | ftxui::center);
+}
+
+ftxui::Element ZenithUI::RenderFilterWindow() {
+  // NOTE: This is a placeholder. A full interactive filter would require
+  // ftxui::Component for Input fields. For now, we'll display the current
+  // filter state.
+  
+  FilterCriteria filter;
+  {
+    std::lock_guard<std::mutex> lock(state_->filter_mutex);
+    filter = state_->filter;
+  }
+
+  auto content = ftxui::vbox({
+      ftxui::text("Filter Settings (Press 'f' to close)"),
+      ftxui::separator(),
+      ftxui::hbox(ftxui::text("Name: "), ftxui::text(filter.name_filter.empty() ? "None" : filter.name_filter)),
+      ftxui::hbox(ftxui::text("Elevation Range: "), ftxui::text(std::format("[{:.1f}, {:.1f}]", filter.min_elevation, filter.max_elevation))),
+      ftxui::hbox(ftxui::text("Azimuth Range: "), ftxui::text(std::format("[{:.1f}, {:.1f}]", filter.min_azimuth, filter.max_azimuth))),
+      ftxui::separator(),
+      ftxui::text(std::format("Active: {}", filter.active ? "YES" : "NO")) | ftxui::color(filter.active ? ftxui::Color::Green : ftxui::Color::Red),
+      ftxui::text("Interactive editing coming in v0.5") | ftxui::dim,
+  });
+
+  return ftxui::window(ftxui::text(" Filters "), content) | ftxui::size(ftxui::WIDTH, ftxui::GREATER_THAN, 40);
 }
 
 }  // namespace app
