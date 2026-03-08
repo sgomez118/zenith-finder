@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <filesystem>
 #include <format>
 #include <iostream>
@@ -67,20 +68,22 @@ void AstrometryEngine::SetCatalog(std::span<const Star> catalog) {
 }
 
 void AstrometryEngine::BuildPlanetsCatalog() const {
-  static const struct {
+  struct PlanetInfo {
     novas_planet id;
     const char* name;
-  } planets[] = {{NOVAS_SUN, "SUN"},         {NOVAS_MERCURY, "MERCURY"},
-                 {NOVAS_VENUS, "VENUS"},     {NOVAS_EARTH, "EARTH"},
-                 {NOVAS_MARS, "MARS"},       {NOVAS_JUPITER, "JUPITER"},
-                 {NOVAS_SATURN, "SATURN"},   {NOVAS_URANUS, "URANUS"},
-                 {NOVAS_NEPTUNE, "NEPTUNE"}, {NOVAS_PLUTO, "PLUTO"},
-                 {NOVAS_MOON, "MOON"}};
+  };
+  static constexpr PlanetInfo kPlanets[] = {
+      {NOVAS_SUN, "SUN"},         {NOVAS_MERCURY, "MERCURY"},
+      {NOVAS_VENUS, "VENUS"},     {NOVAS_EARTH, "EARTH"},
+      {NOVAS_MARS, "MARS"},       {NOVAS_JUPITER, "JUPITER"},
+      {NOVAS_SATURN, "SATURN"},   {NOVAS_URANUS, "URANUS"},
+      {NOVAS_NEPTUNE, "NEPTUNE"}, {NOVAS_PLUTO, "PLUTO"},
+      {NOVAS_MOON, "MOON"}};
 
   prebuilt_->planets.clear();
-  prebuilt_->planets.reserve(std::size(planets));
+  prebuilt_->planets.reserve(std::size(kPlanets));
 
-  for (const auto& planet : planets) {
+  for (const auto& planet : kPlanets) {
     object planet_object;
     make_planet(planet.id, &planet_object);
     // Ensure the name is set in the object struct and truncated safely
@@ -97,6 +100,9 @@ void AstrometryEngine::SetEphemeris(std::shared_ptr<t_calcephbin> ephemeris) {
 }
 
 void AstrometryEngine::InitializeNovas() const {
+  std::lock_guard<std::mutex> lock(initialization_mutex_);
+  if (initialized_) return;
+
   if (ephemeris_) {
     auto result = novas_use_calceph(ephemeris_.get());
     if (result < 0) {
@@ -157,16 +163,16 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
 
   std::string filter_lower = filter.name_filter;
   if (filter.active && !filter_lower.empty()) {
-    std::transform(filter_lower.begin(), filter_lower.end(),
-                   filter_lower.begin(), ::tolower);
+    std::ranges::transform(filter_lower, filter_lower.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
   }
 
-  for (auto i : std::views::iota(0ULL, prebuilt_->stars.size())) {
+  for (size_t i = 0; i < prebuilt_->stars.size(); ++i) {
     // Quick name filter check before expensive calculations
     if (filter.active && !filter_lower.empty()) {
       std::string name_lower = star_names_[i];
-      std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(),
-                     ::tolower);
+      std::ranges::transform(name_lower, name_lower.begin(),
+                             [](unsigned char c) { return std::tolower(c); });
       if (name_lower.find(filter_lower) == std::string::npos) continue;
     }
 
@@ -216,35 +222,34 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
 
   // Sorting
   if (sort.column != SortColumn::NONE) {
-    std::stable_sort(results.begin(), results.end(),
-                     [&](const CelestialResult& a, const CelestialResult& b) {
-                       auto get_val = [&](const CelestialResult& res) {
-                         switch (sort.column) {
-                           case SortColumn::NAME:
-                             return (double)0.0;  // Special case for string
-                           case SortColumn::ELEVATION:
-                             return res.elevation;
-                           case SortColumn::AZIMUTH:
-                             return res.azimuth;
-                           case SortColumn::MAGNITUDE:
-                             return (double)res.magnitude;
-                           case SortColumn::STATE:
-                             return (double)res.is_rising;
-                           default:
-                             return (double)0.0;
-                         }
-                       };
+    std::stable_sort(
+        results.begin(), results.end(),
+        [&](const CelestialResult& a, const CelestialResult& b) {
+          auto get_val = [&](const CelestialResult& res) {
+            switch (sort.column) {
+              case SortColumn::NAME:
+                return 0.0;  // Special case for string
+              case SortColumn::ELEVATION:
+                return res.elevation;
+              case SortColumn::AZIMUTH:
+                return res.azimuth;
+              case SortColumn::MAGNITUDE:
+                return static_cast<double>(res.magnitude);
+              case SortColumn::STATE:
+                return static_cast<double>(res.is_rising);
+              default:
+                return 0.0;
+            }
+          };
 
-                       if (sort.column == SortColumn::NAME) {
-                         return sort.ascending ? (a.name < b.name)
-                                               : (b.name < a.name);
-                       }
+          if (sort.column == SortColumn::NAME) {
+            return sort.ascending ? (a.name < b.name) : (b.name < a.name);
+          }
 
-                       double val_a = get_val(a);
-                       double val_b = get_val(b);
-                       return sort.ascending ? (val_a < val_b)
-                                             : (val_b < val_a);
-                     });
+          double val_a = get_val(a);
+          double val_b = get_val(b);
+          return sort.ascending ? (val_a < val_b) : (val_b < val_a);
+        });
   }
 
   return results;
@@ -297,23 +302,23 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
 
   std::string filter_lower = filter.name_filter;
   if (filter.active && !filter_lower.empty()) {
-    std::transform(filter_lower.begin(), filter_lower.end(),
-                   filter_lower.begin(), ::tolower);
+    std::ranges::transform(filter_lower, filter_lower.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
   }
 
-  for (auto i : std::views::iota(0ULL, prebuilt_->planets.size())) {
+  for (const auto& planet_obj : prebuilt_->planets) {
     // Quick name filter check
     if (filter.active && !filter_lower.empty()) {
-      std::string name_lower = prebuilt_->planets[i].name;
-      std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(),
-                     ::tolower);
+      std::string name_lower = planet_obj.name;
+      std::ranges::transform(name_lower, name_lower.begin(),
+                             [](unsigned char c) { return std::tolower(c); });
       if (name_lower.find(filter_lower) == std::string::npos) continue;
     }
 
     sky_pos planet_position = {0};
     // Apparent coordinates in system
-    auto status = novas_sky_pos(&prebuilt_->planets[i], &frame, NOVAS_CIRS,
-                                &planet_position);
+    auto status =
+        novas_sky_pos(&planet_obj, &frame, NOVAS_CIRS, &planet_position);
 
     if (status != 0) continue;
 
@@ -342,7 +347,7 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     }
 
     results.emplace_back(SolarBody{
-        .name = prebuilt_->planets[i].name,
+        .name = planet_obj.name,
         .elevation = el,
         .azimuth = az,
         .zenith_dist = 90.0 - el,
@@ -353,37 +358,36 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
 
   // Sorting
   if (sort.column != SortColumn::NONE) {
-    std::stable_sort(results.begin(), results.end(),
-                     [&](const SolarBody& a, const SolarBody& b) {
-                       auto get_val = [&](const SolarBody& res) {
-                         switch (sort.column) {
-                           case SortColumn::NAME:
-                             return 0.0;
-                           case SortColumn::ELEVATION:
-                             return res.elevation;
-                           case SortColumn::AZIMUTH:
-                             return res.azimuth;
-                           case SortColumn::ZENITH:
-                             return res.zenith_dist;
-                           case SortColumn::DISTANCE:
-                             return res.distance_au;
-                           case SortColumn::STATE:
-                             return (double)res.is_rising;
-                           default:
-                             return 0.0;
-                         }
-                       };
+    std::stable_sort(
+        results.begin(), results.end(),
+        [&](const SolarBody& a, const SolarBody& b) {
+          auto get_val = [&](const SolarBody& res) {
+            switch (sort.column) {
+              case SortColumn::NAME:
+                return 0.0;
+              case SortColumn::ELEVATION:
+                return res.elevation;
+              case SortColumn::AZIMUTH:
+                return res.azimuth;
+              case SortColumn::ZENITH:
+                return res.zenith_dist;
+              case SortColumn::DISTANCE:
+                return res.distance_au;
+              case SortColumn::STATE:
+                return static_cast<double>(res.is_rising);
+              default:
+                return 0.0;
+            }
+          };
 
-                       if (sort.column == SortColumn::NAME) {
-                         return sort.ascending ? (a.name < b.name)
-                                               : (b.name < a.name);
-                       }
+          if (sort.column == SortColumn::NAME) {
+            return sort.ascending ? (a.name < b.name) : (b.name < a.name);
+          }
 
-                       double val_a = get_val(a);
-                       double val_b = get_val(b);
-                       return sort.ascending ? (val_a < val_b)
-                                             : (val_b < val_a);
-                     });
+          double val_a = get_val(a);
+          double val_b = get_val(b);
+          return sort.ascending ? (val_a < val_b) : (val_b < val_a);
+        });
   }
 
   return results;

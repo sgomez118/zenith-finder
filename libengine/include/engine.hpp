@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <vector>
@@ -118,6 +119,7 @@ class AstrometryEngine {
   std::unique_ptr<PrebuiltCatalog> prebuilt_;
 
   std::shared_ptr<t_calcephbin> ephemeris_;
+  mutable std::mutex initialization_mutex_;
   mutable int accuracy_ = 0;
   mutable bool initialized_ = false;
 };
