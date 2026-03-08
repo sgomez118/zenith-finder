@@ -26,7 +26,7 @@ struct AppState {
   std::chrono::system_clock::time_point last_calc_time;
 
   std::mutex filter_mutex;
-  engine::FilterCriteria filter;
+  engine::FilterCriteria filter{.star_limit = 50};
   bool show_filter_window = false;
 
   std::mutex sort_mutex;

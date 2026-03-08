@@ -161,6 +161,69 @@ void ZenithUI::Run() {
       return false;  // Let tab_container handle events
     }
 
+    if (event == ftxui::Event::Tab || event == ftxui::Event::TabReverse) {
+      if (star_menu_->Focused()) {
+        solar_menu_->TakeFocus();
+      } else {
+        star_menu_->TakeFocus();
+      }
+      return true;
+    }
+
+    if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
+      if (star_menu_->Focused()) {
+        if (star_selected_ <= 0) {
+          std::lock_guard<std::mutex> lock(state_->filter_mutex);
+          if (state_->filter.star_offset > 0) {
+            size_t step = 50;
+            if (state_->filter.star_offset >= step) {
+              state_->filter.star_offset -= step;
+            } else {
+              state_->filter.star_offset = 0;
+            }
+            state_->filter.star_limit = 100;
+            star_selected_ = static_cast<int>(step);
+          } else {
+            star_selected_ = 0;
+          }
+          return true;  // Stay in star_menu
+        }
+      } else if (solar_menu_->Focused()) {
+        if (solar_selected_ <= 0) {
+          solar_selected_ = 0;
+          return true;  // Stay in solar_menu
+        }
+      }
+    }
+
+    if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
+      if (star_menu_->Focused()) {
+        if (star_selected_ >= static_cast<int>(star_entries_.size()) - 1) {
+          if (!star_entries_.empty() && star_entries_[0] != "No data available") {
+            std::lock_guard<std::mutex> lock(state_->filter_mutex);
+            size_t current_limit = state_->filter.star_limit;
+            if (star_entries_.size() >= current_limit) {
+              size_t step = 50;
+              state_->filter.star_offset += step;
+              state_->filter.star_limit = 100;
+              star_selected_ = std::max(
+                  0, static_cast<int>(star_entries_.size()) - static_cast<int>(step) - 1);
+            } else {
+              star_selected_ = static_cast<int>(star_entries_.size()) - 1;
+            }
+          } else {
+            star_selected_ = 0;
+          }
+          return true;  // Stay in star_menu
+        }
+      } else if (solar_menu_->Focused()) {
+        if (solar_selected_ >= static_cast<int>(solar_entries_.size()) - 1) {
+          solar_selected_ = std::max(0, static_cast<int>(solar_entries_.size()) - 1);
+          return true;  // Stay in solar_menu
+        }
+      }
+    }
+
     auto handle_sort = [&](engine::SortCriteria& criteria,
                            engine::SortColumn col) {
       std::lock_guard<std::mutex> lock(state_->sort_mutex);
@@ -329,6 +392,7 @@ ftxui::Element ZenithUI::RenderStars(
   if (star_selected_ >= static_cast<int>(star_entries_.size())) {
     star_selected_ = std::max(0, static_cast<int>(star_entries_.size()) - 1);
   }
+  if (star_selected_ < 0) star_selected_ = 0;
 
   // Header
   auto header =
@@ -347,6 +411,7 @@ ftxui::Element ZenithUI::RenderStars(
 
   std::string title = " Zenith Stars ";
   if (filter.active) title += "[Filtered] ";
+  if (filter.star_offset > 0 || filter.star_limit > 0) title += "[Windowed] ";
 
   return ftxui::window(
              ftxui::text(title),
@@ -387,6 +452,7 @@ ftxui::Element ZenithUI::RenderSolar(
   if (solar_selected_ >= static_cast<int>(solar_entries_.size())) {
     solar_selected_ = std::max(0, static_cast<int>(solar_entries_.size()) - 1);
   }
+  if (solar_selected_ < 0) solar_selected_ = 0;
 
   // Header
   auto header =
@@ -449,11 +515,12 @@ ftxui::Element ZenithUI::RenderRadar(
 
           // Star table height is 23 items
           if (total_stars > 23) {
-            start = std::max(0, star_selected_ - 11);
+            int current_star_sel = std::clamp(star_selected_, 0, total_stars - 1);
+            start = std::max(0, current_star_sel - 11);
             if (start + 23 > total_stars) {
-              start = total_stars - 23;
+              start = std::max(0, total_stars - 23);
             }
-            end = start + 23;
+            end = std::min(total_stars, start + 23);
           }
 
           for (int i = start; i < end; ++i) {
@@ -489,11 +556,12 @@ ftxui::Element ZenithUI::RenderRadar(
 
           // Solar table height is ~11 items
           if (total_solar > 11) {
-            start = std::max(0, solar_selected_ - 5);
+            int current_solar_sel = std::clamp(solar_selected_, 0, total_solar - 1);
+            start = std::max(0, current_solar_sel - 5);
             if (start + 11 > total_solar) {
-              start = total_solar - 11;
+              start = std::max(0, total_solar - 11);
             }
-            end = start + 11;
+            end = std::min(total_solar, start + 11);
           }
 
           for (int i = start; i < end; ++i) {

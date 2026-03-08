@@ -253,14 +253,14 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
   }
 
   // Apply offset and limit
-  if (filter.offset > 0 || filter.limit > 0) {
-    if (filter.offset >= results.size()) {
+  if (filter.star_offset > 0 || filter.star_limit > 0) {
+    if (filter.star_offset >= results.size()) {
       return {};
     }
-    auto start = results.begin() + filter.offset;
+    auto start = results.begin() + filter.star_offset;
     auto end = results.end();
-    if (filter.limit > 0 && filter.limit < static_cast<size_t>(std::distance(start, results.end()))) {
-      end = start + filter.limit;
+    if (filter.star_limit > 0 && filter.star_limit < static_cast<size_t>(std::distance(start, results.end()))) {
+      end = start + filter.star_limit;
     }
     return std::vector<CelestialResult>(start, end);
   }
@@ -404,15 +404,15 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
   }
 
   // Apply offset and limit
-  if (filter.offset > 0 || filter.limit > 0) {
-    if (filter.offset >= results.size()) {
+  if (filter.solar_offset > 0 || filter.solar_limit > 0) {
+    if (filter.solar_offset >= results.size()) {
       return {};
     }
-    auto start = results.begin() + filter.offset;
+    auto start = results.begin() + filter.solar_offset;
     auto end = results.end();
-    if (filter.limit > 0 &&
-        filter.limit < static_cast<size_t>(std::distance(start, results.end()))) {
-      end = start + filter.limit;
+    if (filter.solar_limit > 0 &&
+        filter.solar_limit < static_cast<size_t>(std::distance(start, results.end()))) {
+      end = start + filter.solar_limit;
     }
     return std::vector<SolarBody>(start, end);
   }

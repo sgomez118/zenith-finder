@@ -90,20 +90,20 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
     filter.min_elevation = -90.0f;  // Ensure all stars are "visible" for test
 
     SECTION("Limit only") {
-      filter.limit = 5;
+      filter.star_limit = 5;
       auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
       REQUIRE(results.size() == 5);
     }
 
     SECTION("Offset only") {
-      filter.offset = 7;
+      filter.star_offset = 7;
       auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
       REQUIRE(results.size() == 3);
     }
 
     SECTION("Offset and Limit") {
-      filter.offset = 2;
-      filter.limit = 3;
+      filter.star_offset = 2;
+      filter.star_limit = 3;
       auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
       REQUIRE(results.size() == 3);
       REQUIRE(results[0].name == "Star 2");
@@ -111,7 +111,7 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
     }
 
     SECTION("Offset out of bounds") {
-      filter.offset = 20;
+      filter.star_offset = 20;
       auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
       REQUIRE(results.empty());
     }
