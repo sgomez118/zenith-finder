@@ -302,27 +302,7 @@ ftxui::Element ZenithUI::RenderStars(
   std::vector<engine::CelestialResult> filtered_stars;
 
   if (stars) {
-    for (const auto& star : *stars) {
-      // Apply Filter
-      if (filter.active) {
-        if (!filter.name_filter.empty()) {
-          std::string name_lower = star.name;
-          std::string filter_lower = filter.name_filter;
-          std::transform(name_lower.begin(), name_lower.end(),
-                         name_lower.begin(), ::tolower);
-          std::transform(filter_lower.begin(), filter_lower.end(),
-                         filter_lower.begin(), ::tolower);
-          if (name_lower.find(filter_lower) == std::string::npos) continue;
-        }
-        if (star.elevation < filter.min_elevation ||
-            star.elevation > filter.max_elevation)
-          continue;
-        if (star.azimuth < filter.min_azimuth ||
-            star.azimuth > filter.max_azimuth)
-          continue;
-      }
-      filtered_stars.push_back(star);
-    }
+    filtered_stars = *stars;
   }
 
   // Sorting
@@ -405,27 +385,7 @@ ftxui::Element ZenithUI::RenderSolar(
   std::vector<engine::SolarBody> filtered_solar;
 
   if (solar) {
-    for (const auto& body : *solar) {
-      // Apply Filter
-      if (filter.active) {
-        if (!filter.name_filter.empty()) {
-          std::string name_lower = body.name;
-          std::string filter_lower = filter.name_filter;
-          std::transform(name_lower.begin(), name_lower.end(),
-                         name_lower.begin(), ::tolower);
-          std::transform(filter_lower.begin(), filter_lower.end(),
-                         filter_lower.begin(), ::tolower);
-          if (name_lower.find(filter_lower) == std::string::npos) continue;
-        }
-        if (body.elevation < filter.min_elevation ||
-            body.elevation > filter.max_elevation)
-          continue;
-        if (body.azimuth < filter.min_azimuth ||
-            body.azimuth > filter.max_azimuth)
-          continue;
-      }
-      filtered_solar.push_back(body);
-    }
+    filtered_solar = *solar;
   }
 
   // Sorting
@@ -533,26 +493,6 @@ ftxui::Element ZenithUI::RenderRadar(
           for (const auto& star : *stars) {
             if (star.elevation < 0) continue;
 
-            // Apply Filter
-            if (filter.active) {
-              if (!filter.name_filter.empty()) {
-                std::string name_lower = star.name;
-                std::string filter_lower = filter.name_filter;
-                std::transform(name_lower.begin(), name_lower.end(),
-                               name_lower.begin(), ::tolower);
-                std::transform(filter_lower.begin(), filter_lower.end(),
-                               filter_lower.begin(), ::tolower);
-                if (name_lower.find(filter_lower) == std::string::npos)
-                  continue;
-              }
-              if (star.elevation < filter.min_elevation ||
-                  star.elevation > filter.max_elevation)
-                continue;
-              if (star.azimuth < filter.min_azimuth ||
-                  star.azimuth > filter.max_azimuth)
-                continue;
-            }
-
             double r_s = r * (star.zenith_dist / 90.0);
             double az_rad = (star.azimuth - 90.0) * std::numbers::pi / 180.0;
             int sx = cx + static_cast<int>(r_s * std::cos(az_rad));
@@ -569,26 +509,6 @@ ftxui::Element ZenithUI::RenderRadar(
         if (solar) {
           for (const auto& body : *solar) {
             if (body.elevation < 0) continue;
-
-            // Apply Filter
-            if (filter.active) {
-              if (!filter.name_filter.empty()) {
-                std::string name_lower = body.name;
-                std::string filter_lower = filter.name_filter;
-                std::transform(name_lower.begin(), name_lower.end(),
-                               name_lower.begin(), ::tolower);
-                std::transform(filter_lower.begin(), filter_lower.end(),
-                               filter_lower.begin(), ::tolower);
-                if (name_lower.find(filter_lower) == std::string::npos)
-                  continue;
-              }
-              if (body.elevation < filter.min_elevation ||
-                  body.elevation > filter.max_elevation)
-                continue;
-              if (body.azimuth < filter.min_azimuth ||
-                  body.azimuth > filter.max_azimuth)
-                continue;
-            }
 
             double r_b = r * (body.zenith_dist / 90.0);
             double az_rad = (body.azimuth - 90.0) * std::numbers::pi / 180.0;

@@ -113,17 +113,16 @@ void AstrometryEngine::InitializeNovas() const {
 }
 
 std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
-    const Observer& obs, std::chrono::system_clock::time_point time) const {
+    const Observer& obs, const FilterCriteria& filter,
+    std::chrono::system_clock::time_point time) const {
   if (!initialized_) {
     InitializeNovas();
   }
 
   std::vector<CelestialResult> results;
-  if (prebuilt_->stars.empty()) {
+  if (!prebuilt_ || prebuilt_->stars.empty()) {
     return results;
   }
-
-  results.reserve(prebuilt_->stars.size());
 
   observer location;
   novas_timespec t_spec;
@@ -156,7 +155,21 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
       static_cast<novas_accuracy>(accuracy_), &location, &t_spec_future,
       kPolarOffsetX, kPolarOffsetY, &frame_future);
 
+  std::string filter_lower = filter.name_filter;
+  if (filter.active && !filter_lower.empty()) {
+    std::transform(filter_lower.begin(), filter_lower.end(),
+                   filter_lower.begin(), ::tolower);
+  }
+
   for (auto i : std::views::iota(0ULL, prebuilt_->stars.size())) {
+    // Quick name filter check before expensive calculations
+    if (filter.active && !filter_lower.empty()) {
+      std::string name_lower = star_names_[i];
+      std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(),
+                     ::tolower);
+      if (name_lower.find(filter_lower) == std::string::npos) continue;
+    }
+
     sky_pos star_position = {0};
     double az = 0, el = 0;
 
@@ -172,9 +185,13 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
     novas_app_to_hor(&frame, NOVAS_CIRS, star_position.ra, star_position.dec,
                      novas_standard_refraction, &az, &el);
 
-    // Filter out objects below the horizon
-    if (el < 0) {
-      continue;
+    // Filter by elevation and azimuth
+    if (filter.active) {
+      if (el < filter.min_elevation || el > filter.max_elevation) continue;
+      if (az < filter.min_azimuth || az > filter.max_azimuth) continue;
+    } else {
+      // Default: Filter out objects below the horizon
+      if (el < 0) continue;
     }
 
     // Determine if the star is rising by comparing to the future frame
@@ -201,13 +218,14 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
 }
 
 std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
-    const Observer& obs, std::chrono::system_clock::time_point time) const {
+    const Observer& obs, const FilterCriteria& filter,
+    std::chrono::system_clock::time_point time) const {
   if (!initialized_) {
     InitializeNovas();
   }
 
   std::vector<SolarBody> results;
-  if (prebuilt_->planets.empty()) {
+  if (!prebuilt_ || prebuilt_->planets.empty()) {
     return results;
   }
 
@@ -244,7 +262,21 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
       static_cast<novas_accuracy>(accuracy_), &location, &t_spec_future,
       kPolarOffsetX, kPolarOffsetY, &frame_future);
 
+  std::string filter_lower = filter.name_filter;
+  if (filter.active && !filter_lower.empty()) {
+    std::transform(filter_lower.begin(), filter_lower.end(),
+                   filter_lower.begin(), ::tolower);
+  }
+
   for (auto i : std::views::iota(0ULL, prebuilt_->planets.size())) {
+    // Quick name filter check
+    if (filter.active && !filter_lower.empty()) {
+      std::string name_lower = prebuilt_->planets[i].name;
+      std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(),
+                     ::tolower);
+      if (name_lower.find(filter_lower) == std::string::npos) continue;
+    }
+
     sky_pos planet_position = {0};
     // Apparent coordinates in system
     auto status = novas_sky_pos(&prebuilt_->planets[i], &frame, NOVAS_CIRS,
@@ -257,9 +289,13 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     novas_app_to_hor(&frame, NOVAS_CIRS, planet_position.ra,
                      planet_position.dec, novas_standard_refraction, &az, &el);
 
-    // Filter out objects below the horizon
-    if (el < 0) {
-      continue;
+    // Filter by elevation and azimuth
+    if (filter.active) {
+      if (el < filter.min_elevation || el > filter.max_elevation) continue;
+      if (az < filter.min_azimuth || az > filter.max_azimuth) continue;
+    } else {
+      // Default: Filter out objects below the horizon
+      if (el < 0) continue;
     }
 
     // Determine if the planet is rising by comparing to the future frame

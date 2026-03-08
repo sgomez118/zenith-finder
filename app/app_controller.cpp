@@ -94,10 +94,22 @@ void AppController::RunWorker() {
     }
 
     auto now = std::chrono::system_clock::now();
+
+    engine::FilterCriteria engine_filter;
+    {
+      std::lock_guard<std::mutex> lock(state_->filter_mutex);
+      engine_filter.active = state_->filter.active;
+      engine_filter.name_filter = state_->filter.name_filter;
+      engine_filter.min_elevation = state_->filter.min_elevation;
+      engine_filter.max_elevation = state_->filter.max_elevation;
+      engine_filter.min_azimuth = state_->filter.min_azimuth;
+      engine_filter.max_azimuth = state_->filter.max_azimuth;
+    }
+
     auto star_results = std::make_shared<std::vector<engine::CelestialResult>>(
-        astrometry_engine.CalculateZenithProximity(obs, now));
+        astrometry_engine.CalculateZenithProximity(obs, engine_filter, now));
     auto solar_results = std::make_shared<std::vector<engine::SolarBody>>(
-        astrometry_engine.CalculateSolarSystem(obs, now));
+        astrometry_engine.CalculateSolarSystem(obs, engine_filter, now));
 
     if (logger_) {
       logger_->Log(obs, *star_results);

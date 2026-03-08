@@ -55,6 +55,15 @@ struct Observer {
   double altitude;
 };
 
+struct FilterCriteria {
+  std::string name_filter;
+  float min_elevation = -90.0f;
+  float max_elevation = 90.0f;
+  float min_azimuth = 0.0f;
+  float max_azimuth = 360.0f;
+  bool active = false;
+};
+
 class AstrometryEngine {
  public:
   AstrometryEngine();
@@ -70,12 +79,14 @@ class AstrometryEngine {
 
   // Calculates zenith proximity using the pre-built catalog.
   [[nodiscard]] std::vector<CelestialResult> CalculateZenithProximity(
-      const Observer& obs, std::chrono::system_clock::time_point time =
-                               std::chrono::system_clock::now()) const;
+      const Observer& obs, const FilterCriteria& filter = {},
+      std::chrono::system_clock::time_point time =
+          std::chrono::system_clock::now()) const;
 
   [[nodiscard]] std::vector<SolarBody> CalculateSolarSystem(
-      const Observer& obs, std::chrono::system_clock::time_point time =
-                               std::chrono::system_clock::now()) const;
+      const Observer& obs, const FilterCriteria& filter = {},
+      std::chrono::system_clock::time_point time =
+          std::chrono::system_clock::now()) const;
 
  private:
   // Internal helper to ensure NOVAS is initialized with the current ephemeris.
