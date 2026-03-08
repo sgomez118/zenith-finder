@@ -23,9 +23,6 @@ bool AppController::Initialize(const AppConfig& config) {
   if (config_.catalog_path.ends_with(".json")) {
     catalog_ =
         engine::CatalogLoader::LoadStarDataFromJSON(config_.catalog_path);
-  } else {
-    // catalog_ =
-    // engine::CatalogLoader::LoadStarDataFromCSV(config_.catalog_path);
   }
 
   if (catalog_.empty()) {

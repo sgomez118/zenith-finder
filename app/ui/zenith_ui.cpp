@@ -422,8 +422,8 @@ ftxui::Element ZenithUI::RenderRadar(
     const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
     const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
     const engine::FilterCriteria& filter) {
-  auto radar =
-      ftxui::canvas(100, 100, [stars, solar, filter](ftxui::Canvas& c) {
+  auto radar = ftxui::canvas(
+      100, 100, [this, stars, solar, filter](ftxui::Canvas& c) {
         int cx = 50;
         int cy = 50;
         int r = 45;
@@ -442,8 +442,22 @@ ftxui::Element ZenithUI::RenderRadar(
         c.DrawText(cx, cy + r + 5, "S");
         c.DrawText(cx - r - 8, cy, "W");
 
-        if (stars) {
-          for (const auto& star : *stars) {
+        if (stars && !stars->empty()) {
+          int total_stars = static_cast<int>(stars->size());
+          int start = 0;
+          int end = total_stars;
+
+          // Star table height is 23 items
+          if (total_stars > 23) {
+            start = std::max(0, star_selected_ - 11);
+            if (start + 23 > total_stars) {
+              start = total_stars - 23;
+            }
+            end = start + 23;
+          }
+
+          for (int i = start; i < end; ++i) {
+            const auto& star = (*stars)[i];
             if (star.elevation < 0) continue;
 
             double r_s = r * (star.zenith_dist / 90.0);
@@ -451,16 +465,39 @@ ftxui::Element ZenithUI::RenderRadar(
             int sx = cx + static_cast<int>(r_s * std::cos(az_rad));
             int sy = cy + static_cast<int>(r_s * std::sin(az_rad));
 
+            auto color = (i == star_selected_) ? ftxui::Color::Green
+                                               : ftxui::Color::White;
             if (star.zenith_dist < 2.0) {
               c.DrawBlockCircle(sx, sy, 2, ftxui::Color::Yellow);
+              if (i == star_selected_) {
+                c.DrawBlockCircle(sx, sy, 3, ftxui::Color::Green);
+              }
             } else {
-              c.DrawBlock(sx, sy, true, ftxui::Color::White);
+              if (i == star_selected_) {
+                c.DrawBlockCircle(sx, sy, 2, ftxui::Color::Green);
+              } else {
+                c.DrawBlock(sx, sy, true, color);
+              }
             }
           }
         }
 
-        if (solar) {
-          for (const auto& body : *solar) {
+        if (solar && !solar->empty()) {
+          int total_solar = static_cast<int>(solar->size());
+          int start = 0;
+          int end = total_solar;
+
+          // Solar table height is ~11 items
+          if (total_solar > 11) {
+            start = std::max(0, solar_selected_ - 5);
+            if (start + 11 > total_solar) {
+              start = total_solar - 11;
+            }
+            end = start + 11;
+          }
+
+          for (int i = start; i < end; ++i) {
+            const auto& body = (*solar)[i];
             if (body.elevation < 0) continue;
 
             double r_b = r * (body.zenith_dist / 90.0);
@@ -470,6 +507,10 @@ ftxui::Element ZenithUI::RenderRadar(
 
             auto color = (body.name == "SUN") ? ftxui::Color::Yellow
                                               : ftxui::Color::Cyan;
+
+            if (i == solar_selected_) {
+              c.DrawBlockCircle(bx, by, 4, ftxui::Color::Green);
+            }
             c.DrawBlockCircle(bx, by, 3, color);
             c.DrawText(bx + 2, by + 2, body.name);
           }
@@ -478,6 +519,9 @@ ftxui::Element ZenithUI::RenderRadar(
 
   std::string title = " Zenith Radar ";
   if (filter.active) title += "[Filtered] ";
+  if ((stars && stars->size() > 23) || (solar && solar->size() > 11)) {
+    title += "[Windowed] ";
+  }
 
   return ftxui::window(ftxui::text(title), radar | ftxui::center);
 }
