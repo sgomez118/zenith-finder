@@ -55,6 +55,22 @@ struct Observer {
   double altitude;
 };
 
+enum class SortColumn {
+  NONE,
+  NAME,
+  ELEVATION,
+  AZIMUTH,
+  MAGNITUDE,
+  ZENITH,
+  DISTANCE,
+  STATE
+};
+
+struct SortCriteria {
+  SortColumn column = SortColumn::NONE;
+  bool ascending = true;
+};
+
 struct FilterCriteria {
   std::string name_filter;
   float min_elevation = -90.0f;
@@ -80,11 +96,13 @@ class AstrometryEngine {
   // Calculates zenith proximity using the pre-built catalog.
   [[nodiscard]] std::vector<CelestialResult> CalculateZenithProximity(
       const Observer& obs, const FilterCriteria& filter = {},
+      const SortCriteria& sort = {},
       std::chrono::system_clock::time_point time =
           std::chrono::system_clock::now()) const;
 
   [[nodiscard]] std::vector<SolarBody> CalculateSolarSystem(
       const Observer& obs, const FilterCriteria& filter = {},
+      const SortCriteria& sort = {},
       std::chrono::system_clock::time_point time =
           std::chrono::system_clock::now()) const;
 

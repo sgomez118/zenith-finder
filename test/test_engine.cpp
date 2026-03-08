@@ -19,7 +19,7 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
   SECTION("Instance-based method returns stars for valid input") {
     AstrometryEngine engine;
     engine.SetCatalog(mock_catalog);
-    auto results = engine.CalculateZenithProximity(obs, {}, now);
+    auto results = engine.CalculateZenithProximity(obs, {}, {}, now);
 
     // Some stars might be below horizon depending on the time of day
     REQUIRE(results.size() <= mock_catalog.size());
@@ -37,11 +37,11 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
   SECTION("Rising/Setting trend check") {
     AstrometryEngine engine;
     engine.SetCatalog(mock_catalog);
-    auto res = engine.CalculateZenithProximity(obs, {}, now);
+    auto res = engine.CalculateZenithProximity(obs, {}, {}, now);
 
     if (!res.empty()) {
       auto t_future = now + std::chrono::seconds(10);
-      auto res_future = engine.CalculateZenithProximity(obs, {}, t_future);
+      auto res_future = engine.CalculateZenithProximity(obs, {}, {}, t_future);
 
       if (!res_future.empty()) {
         for (size_t i = 0; i < res.size(); ++i) {
@@ -67,14 +67,38 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
     filter.active = true;
     filter.name_filter = "Vega";
     
-    auto results = engine.CalculateZenithProximity(obs, filter, now);
+    auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
     for (const auto& res : results) {
         REQUIRE(res.name == "Vega");
     }
 
     filter.name_filter = "NON_EXISTENT_STAR";
-    results = engine.CalculateZenithProximity(obs, filter, now);
+    results = engine.CalculateZenithProximity(obs, filter, {}, now);
     REQUIRE(results.empty());
+  }
+
+  SECTION("Sorting in engine") {
+    AstrometryEngine engine;
+    engine.SetCatalog(mock_catalog);
+
+    SortCriteria sort;
+    sort.column = SortColumn::NAME;
+    sort.ascending = true;
+
+    auto results = engine.CalculateZenithProximity(obs, {}, sort, now);
+    if (results.size() >= 2) {
+      for (size_t i = 0; i < results.size() - 1; ++i) {
+        REQUIRE(results[i].name <= results[i + 1].name);
+      }
+    }
+
+    sort.ascending = false;
+    results = engine.CalculateZenithProximity(obs, {}, sort, now);
+    if (results.size() >= 2) {
+      for (size_t i = 0; i < results.size() - 1; ++i) {
+        REQUIRE(results[i].name >= results[i + 1].name);
+      }
+    }
   }
 }
 
@@ -83,7 +107,7 @@ TEST_CASE("Solar System Calculation", "[engine]") {
   auto now = std::chrono::system_clock::now();
 
   AstrometryEngine engine;
-  auto bodies = engine.CalculateSolarSystem(obs, {}, now);
+  auto bodies = engine.CalculateSolarSystem(obs, {}, {}, now);
 
   // At least the Sun should be returned (if implemented)
   if (!bodies.empty()) {

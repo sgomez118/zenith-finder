@@ -156,7 +156,7 @@ void ZenithUI::Run() {
       return false;  // Let tab_container handle events
     }
 
-    auto handle_sort = [&](SortCriteria& criteria, SortColumn col) {
+    auto handle_sort = [&](engine::SortCriteria& criteria, engine::SortColumn col) {
       std::lock_guard<std::mutex> lock(state_->sort_mutex);
       if (criteria.column == col) {
         criteria.ascending = !criteria.ascending;
@@ -168,28 +168,28 @@ void ZenithUI::Run() {
     };
 
     if (event == ftxui::Event::Character('1'))
-      return handle_sort(state_->star_sort, SortColumn::NAME);
+      return handle_sort(state_->star_sort, engine::SortColumn::NAME);
     if (event == ftxui::Event::Character('2'))
-      return handle_sort(state_->star_sort, SortColumn::ELEVATION);
+      return handle_sort(state_->star_sort, engine::SortColumn::ELEVATION);
     if (event == ftxui::Event::Character('3'))
-      return handle_sort(state_->star_sort, SortColumn::AZIMUTH);
+      return handle_sort(state_->star_sort, engine::SortColumn::AZIMUTH);
     if (event == ftxui::Event::Character('4'))
-      return handle_sort(state_->star_sort, SortColumn::MAGNITUDE);
+      return handle_sort(state_->star_sort, engine::SortColumn::MAGNITUDE);
     if (event == ftxui::Event::Character('5'))
-      return handle_sort(state_->star_sort, SortColumn::STATE);
+      return handle_sort(state_->star_sort, engine::SortColumn::STATE);
 
     if (event == ftxui::Event::Character('6'))
-      return handle_sort(state_->solar_sort, SortColumn::NAME);
+      return handle_sort(state_->solar_sort, engine::SortColumn::NAME);
     if (event == ftxui::Event::Character('7'))
-      return handle_sort(state_->solar_sort, SortColumn::ELEVATION);
+      return handle_sort(state_->solar_sort, engine::SortColumn::ELEVATION);
     if (event == ftxui::Event::Character('8'))
-      return handle_sort(state_->solar_sort, SortColumn::AZIMUTH);
+      return handle_sort(state_->solar_sort, engine::SortColumn::AZIMUTH);
     if (event == ftxui::Event::Character('9'))
-      return handle_sort(state_->solar_sort, SortColumn::ZENITH);
+      return handle_sort(state_->solar_sort, engine::SortColumn::ZENITH);
     if (event == ftxui::Event::Character('0'))
-      return handle_sort(state_->solar_sort, SortColumn::DISTANCE);
+      return handle_sort(state_->solar_sort, engine::SortColumn::DISTANCE);
     if (event == ftxui::Event::Character('-'))
-      return handle_sort(state_->solar_sort, SortColumn::STATE);
+      return handle_sort(state_->solar_sort, engine::SortColumn::STATE);
 
     return false;
   });
@@ -230,14 +230,14 @@ ftxui::Element ZenithUI::RenderMainContent() {
     time = state_->last_calc_time;
   }
 
-  FilterCriteria filter;
+  engine::FilterCriteria filter;
   {
     std::lock_guard<std::mutex> lock(state_->filter_mutex);
     filter = state_->filter;
   }
 
-  SortCriteria star_sort;
-  SortCriteria solar_sort;
+  engine::SortCriteria star_sort;
+  engine::SortCriteria solar_sort;
   {
     std::lock_guard<std::mutex> lock(state_->sort_mutex);
     star_sort = state_->star_sort;
@@ -297,42 +297,16 @@ ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
 
 ftxui::Element ZenithUI::RenderStars(
     const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
-    const FilterCriteria& filter, const SortCriteria& sort) {
+    const engine::FilterCriteria& filter, const engine::SortCriteria& sort) {
   star_entries_.clear();
-  std::vector<engine::CelestialResult> filtered_stars;
+  std::vector<engine::CelestialResult> results;
 
   if (stars) {
-    filtered_stars = *stars;
-  }
-
-  // Sorting
-  if (sort.column != SortColumn::NONE) {
-    std::stable_sort(filtered_stars.begin(), filtered_stars.end(),
-                     [&](const engine::CelestialResult& a,
-                         const engine::CelestialResult& b) {
-                       auto cmp = [&](const auto& val_a, const auto& val_b) {
-                         return sort.ascending ? (val_a < val_b)
-                                               : (val_b < val_a);
-                       };
-                       switch (sort.column) {
-                         case SortColumn::NAME:
-                           return cmp(a.name, b.name);
-                         case SortColumn::ELEVATION:
-                           return cmp(a.elevation, b.elevation);
-                         case SortColumn::AZIMUTH:
-                           return cmp(a.azimuth, b.azimuth);
-                         case SortColumn::MAGNITUDE:
-                           return cmp(a.magnitude, b.magnitude);
-                         case SortColumn::STATE:
-                           return cmp(a.is_rising, b.is_rising);
-                         default:
-                           return false;
-                       }
-                     });
+    results = *stars;
   }
 
   // Populate menu entries
-  for (const auto& star : filtered_stars) {
+  for (const auto& star : results) {
     std::string state_text = star.is_rising ? "Rising" : "Setting";
     std::string state_icon = star.is_rising ? std::string(ui::kIconRising)
                                             : std::string(ui::kIconSetting);
@@ -353,15 +327,15 @@ ftxui::Element ZenithUI::RenderStars(
   // Header
   auto header =
       ftxui::hbox({
-          SortableHeader("Star", SortColumn::NAME, sort, 15),
+          SortableHeader("Star", engine::SortColumn::NAME, sort, 15),
           ftxui::text(" | "),
-          SortableHeader("Elevation", SortColumn::ELEVATION, sort, 11),
+          SortableHeader("Elevation", engine::SortColumn::ELEVATION, sort, 11),
           ftxui::text(" | "),
-          SortableHeader("Azimuth", SortColumn::AZIMUTH, sort, 9),
+          SortableHeader("Azimuth", engine::SortColumn::AZIMUTH, sort, 9),
           ftxui::text(" | "),
-          SortableHeader("Magnitude", SortColumn::MAGNITUDE, sort, 11),
+          SortableHeader("Magnitude", engine::SortColumn::MAGNITUDE, sort, 11),
           ftxui::text(" | "),
-          SortableHeader("State", SortColumn::STATE, sort, 8),
+          SortableHeader("State", engine::SortColumn::STATE, sort, 8),
       }) |
       ftxui::bold;
 
@@ -380,43 +354,16 @@ ftxui::Element ZenithUI::RenderStars(
 
 ftxui::Element ZenithUI::RenderSolar(
     const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
-    const FilterCriteria& filter, const SortCriteria& sort) {
+    const engine::FilterCriteria& filter, const engine::SortCriteria& sort) {
   solar_entries_.clear();
-  std::vector<engine::SolarBody> filtered_solar;
+  std::vector<engine::SolarBody> results;
 
   if (solar) {
-    filtered_solar = *solar;
-  }
-
-  // Sorting
-  if (sort.column != SortColumn::NONE) {
-    std::stable_sort(
-        filtered_solar.begin(), filtered_solar.end(),
-        [&](const engine::SolarBody& a, const engine::SolarBody& b) {
-          auto cmp = [&](const auto& val_a, const auto& val_b) {
-            return sort.ascending ? (val_a < val_b) : (val_b < val_a);
-          };
-          switch (sort.column) {
-            case SortColumn::NAME:
-              return cmp(a.name, b.name);
-            case SortColumn::ELEVATION:
-              return cmp(a.elevation, b.elevation);
-            case SortColumn::AZIMUTH:
-              return cmp(a.azimuth, b.azimuth);
-            case SortColumn::ZENITH:
-              return cmp(a.zenith_dist, b.zenith_dist);
-            case SortColumn::DISTANCE:
-              return cmp(a.distance_au, b.distance_au);
-            case SortColumn::STATE:
-              return cmp(a.is_rising, b.is_rising);
-            default:
-              return false;
-          }
-        });
+    results = *solar;
   }
 
   // Populate menu entries
-  for (const auto& body : filtered_solar) {
+  for (const auto& body : results) {
     std::string state_text = body.is_rising ? "Rising" : "Setting";
     std::string state_icon = body.is_rising ? std::string(ui::kIconRising)
                                             : std::string(ui::kIconSetting);
@@ -438,17 +385,17 @@ ftxui::Element ZenithUI::RenderSolar(
   // Header
   auto header =
       ftxui::hbox({
-          SortableHeader("Body", SortColumn::NAME, sort, 15),
+          SortableHeader("Body", engine::SortColumn::NAME, sort, 15),
           ftxui::text(" | "),
-          SortableHeader("Elevation", SortColumn::ELEVATION, sort, 11),
+          SortableHeader("Elevation", engine::SortColumn::ELEVATION, sort, 11),
           ftxui::text(" | "),
-          SortableHeader("Azimuth", SortColumn::AZIMUTH, sort, 9),
+          SortableHeader("Azimuth", engine::SortColumn::AZIMUTH, sort, 9),
           ftxui::text(" | "),
-          SortableHeader("Zenith", SortColumn::ZENITH, sort, 8),
+          SortableHeader("Zenith", engine::SortColumn::ZENITH, sort, 8),
           ftxui::text(" | "),
-          SortableHeader("Dist (AU)", SortColumn::DISTANCE, sort, 11),
+          SortableHeader("Dist (AU)", engine::SortColumn::DISTANCE, sort, 11),
           ftxui::text(" | "),
-          SortableHeader("State", SortColumn::STATE, sort, 8),
+          SortableHeader("State", engine::SortColumn::STATE, sort, 8),
       }) |
       ftxui::bold;
 
@@ -468,7 +415,7 @@ ftxui::Element ZenithUI::RenderSolar(
 ftxui::Element ZenithUI::RenderRadar(
     const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
     const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
-    const FilterCriteria& filter) {
+    const engine::FilterCriteria& filter) {
   auto radar =
       ftxui::canvas(100, 100, [stars, solar, filter](ftxui::Canvas& c) {
         int cx = 50;
@@ -551,8 +498,8 @@ ftxui::Element ZenithUI::RenderFilterWindow() {
 }
 
 ftxui::Element ZenithUI::SortableHeader(const std::string& label,
-                                        SortColumn col,
-                                        const SortCriteria& current_sort,
+                                        engine::SortColumn col,
+                                        const engine::SortCriteria& current_sort,
                                         int width) {
   std::string text = label;
   if (current_sort.column == col) {

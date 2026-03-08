@@ -12,31 +12,6 @@
 
 namespace app {
 
-enum class SortColumn {
-  NONE,
-  NAME,
-  ELEVATION,
-  AZIMUTH,
-  MAGNITUDE,
-  ZENITH,
-  DISTANCE,
-  STATE
-};
-
-struct SortCriteria {
-  SortColumn column = SortColumn::NONE;
-  bool ascending = true;
-};
-
-struct FilterCriteria {
-  std::string name_filter;
-  float min_elevation = 0.0f;
-  float max_elevation = 90.0f;
-  float min_azimuth = 0.0f;
-  float max_azimuth = 360.0f;
-  bool active = false;
-};
-
 struct AppState {
   std::atomic<bool> running{true};
   std::atomic<bool> gps_active{false};
@@ -51,12 +26,12 @@ struct AppState {
   std::chrono::system_clock::time_point last_calc_time;
 
   std::mutex filter_mutex;
-  FilterCriteria filter;
+  engine::FilterCriteria filter;
   bool show_filter_window = false;
 
   std::mutex sort_mutex;
-  SortCriteria star_sort{SortColumn::NONE, true};
-  SortCriteria solar_sort{SortColumn::NONE, true};
+  engine::SortCriteria star_sort{engine::SortColumn::NONE, true};
+  engine::SortCriteria solar_sort{engine::SortColumn::NONE, true};
 };
 
 }  // namespace app

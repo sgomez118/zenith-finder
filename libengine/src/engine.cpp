@@ -113,7 +113,7 @@ void AstrometryEngine::InitializeNovas() const {
 }
 
 std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
-    const Observer& obs, const FilterCriteria& filter,
+    const Observer& obs, const FilterCriteria& filter, const SortCriteria& sort,
     std::chrono::system_clock::time_point time) const {
   if (!initialized_) {
     InitializeNovas();
@@ -214,11 +214,44 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
     });
   }
 
+  // Sorting
+  if (sort.column != SortColumn::NONE) {
+    std::stable_sort(results.begin(), results.end(),
+                     [&](const CelestialResult& a, const CelestialResult& b) {
+                       auto get_val = [&](const CelestialResult& res) {
+                         switch (sort.column) {
+                           case SortColumn::NAME:
+                             return (double)0.0;  // Special case for string
+                           case SortColumn::ELEVATION:
+                             return res.elevation;
+                           case SortColumn::AZIMUTH:
+                             return res.azimuth;
+                           case SortColumn::MAGNITUDE:
+                             return (double)res.magnitude;
+                           case SortColumn::STATE:
+                             return (double)res.is_rising;
+                           default:
+                             return (double)0.0;
+                         }
+                       };
+
+                       if (sort.column == SortColumn::NAME) {
+                         return sort.ascending ? (a.name < b.name)
+                                               : (b.name < a.name);
+                       }
+
+                       double val_a = get_val(a);
+                       double val_b = get_val(b);
+                       return sort.ascending ? (val_a < val_b)
+                                             : (val_b < val_a);
+                     });
+  }
+
   return results;
 }
 
 std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
-    const Observer& obs, const FilterCriteria& filter,
+    const Observer& obs, const FilterCriteria& filter, const SortCriteria& sort,
     std::chrono::system_clock::time_point time) const {
   if (!initialized_) {
     InitializeNovas();
@@ -316,6 +349,41 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
         .distance_au = planet_position.dis,
         .is_rising = rising,
     });
+  }
+
+  // Sorting
+  if (sort.column != SortColumn::NONE) {
+    std::stable_sort(results.begin(), results.end(),
+                     [&](const SolarBody& a, const SolarBody& b) {
+                       auto get_val = [&](const SolarBody& res) {
+                         switch (sort.column) {
+                           case SortColumn::NAME:
+                             return 0.0;
+                           case SortColumn::ELEVATION:
+                             return res.elevation;
+                           case SortColumn::AZIMUTH:
+                             return res.azimuth;
+                           case SortColumn::ZENITH:
+                             return res.zenith_dist;
+                           case SortColumn::DISTANCE:
+                             return res.distance_au;
+                           case SortColumn::STATE:
+                             return (double)res.is_rising;
+                           default:
+                             return 0.0;
+                         }
+                       };
+
+                       if (sort.column == SortColumn::NAME) {
+                         return sort.ascending ? (a.name < b.name)
+                                               : (b.name < a.name);
+                       }
+
+                       double val_a = get_val(a);
+                       double val_b = get_val(b);
+                       return sort.ascending ? (val_a < val_b)
+                                             : (val_b < val_a);
+                     });
   }
 
   return results;
