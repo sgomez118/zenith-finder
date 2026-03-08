@@ -37,15 +37,18 @@ class ZenithUI {
                                const std::string& time_str);
   ftxui::Element RenderStars(
       const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
-      const FilterCriteria& filter);
+      const FilterCriteria& filter, const SortCriteria& sort);
   ftxui::Element RenderSolar(
       const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
-      const FilterCriteria& filter);
+      const FilterCriteria& filter, const SortCriteria& sort);
   ftxui::Element RenderRadar(
       const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
       const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
       const FilterCriteria& filter);
   ftxui::Element RenderFilterWindow();
+
+  ftxui::Element SortableHeader(const std::string& label, SortColumn col,
+                                const SortCriteria& current_sort, int width);
 };
 
 }  // namespace app

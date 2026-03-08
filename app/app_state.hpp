@@ -12,6 +12,22 @@
 
 namespace app {
 
+enum class SortColumn {
+  NONE,
+  NAME,
+  ELEVATION,
+  AZIMUTH,
+  MAGNITUDE,
+  ZENITH,
+  DISTANCE,
+  STATE
+};
+
+struct SortCriteria {
+  SortColumn column = SortColumn::NONE;
+  bool ascending = true;
+};
+
 struct FilterCriteria {
   std::string name_filter;
   float min_elevation = 0.0f;
@@ -37,6 +53,10 @@ struct AppState {
   std::mutex filter_mutex;
   FilterCriteria filter;
   bool show_filter_window = false;
+
+  std::mutex sort_mutex;
+  SortCriteria star_sort{SortColumn::NONE, true};
+  SortCriteria solar_sort{SortColumn::NONE, true};
 };
 
 }  // namespace app
