@@ -26,11 +26,10 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
     for (const auto& result : results) {
       REQUIRE(result.azimuth >= 0.0);
       REQUIRE(result.azimuth < 360.0);
-      REQUIRE(result.elevation >= 0.0); // Now that we filter
+      REQUIRE(result.elevation >= 0.0);  // Now that we filter
       REQUIRE(result.elevation <= 90.0);
-      REQUIRE_THAT(
-          result.zenith_dist,
-          Catch::Matchers::WithinAbs(90.0 - result.elevation, 0.001));
+      REQUIRE_THAT(result.zenith_dist,
+                   Catch::Matchers::WithinAbs(90.0 - result.elevation, 0.001));
     }
   }
 
@@ -46,10 +45,9 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
       if (!res_future.empty()) {
         for (size_t i = 0; i < res.size(); ++i) {
           // Find the same star in res_future (might be skipped if it set)
-          auto it = std::find_if(res_future.begin(), res_future.end(),
-                                [&](const CelestialResult& r) {
-                                  return r.name == res[i].name;
-                                });
+          auto it = std::find_if(
+              res_future.begin(), res_future.end(),
+              [&](const CelestialResult& r) { return r.name == res[i].name; });
           if (it != res_future.end()) {
             bool actually_rising = it->elevation > res[i].elevation;
             REQUIRE(res[i].is_rising == actually_rising);
@@ -66,10 +64,10 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
     FilterCriteria filter;
     filter.active = true;
     filter.name_filter = "Vega";
-    
+
     auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
     for (const auto& res : results) {
-        REQUIRE(res.name == "Vega");
+      REQUIRE(res.name == "Vega");
     }
 
     filter.name_filter = "NON_EXISTENT_STAR";

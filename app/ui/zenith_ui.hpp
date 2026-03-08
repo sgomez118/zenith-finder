@@ -20,7 +20,7 @@ class ZenithUI {
  private:
   std::shared_ptr<AppState> state_;
   ftxui::ScreenInteractive screen_;
-  
+
   // Star list scrolling state
   int star_selected_ = 0;
   std::vector<std::string> star_entries_;
@@ -48,8 +48,10 @@ class ZenithUI {
       const engine::FilterCriteria& filter);
   ftxui::Element RenderFilterWindow();
 
-  ftxui::Element SortableHeader(const std::string& label, engine::SortColumn col,
-                                const engine::SortCriteria& current_sort, int width);
+  ftxui::Element SortableHeader(const std::string& label,
+                                engine::SortColumn col,
+                                const engine::SortCriteria& current_sort,
+                                int width);
 
   // Filter UI Components
   std::string name_filter_str_;
@@ -65,7 +67,7 @@ class ZenithUI {
   ftxui::Component max_azimuth_input_;
   ftxui::Component filter_active_checkbox_;
   ftxui::Component filter_container_;
-  
+
   // Container members for stability
   ftxui::Component main_container_;
   ftxui::Component filter_window_container_;

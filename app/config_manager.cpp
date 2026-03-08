@@ -37,10 +37,9 @@ Config ConfigManager::Load(const std::filesystem::path& path) {
 void ConfigManager::Save(const std::filesystem::path& path,
                          const Config& config) {
   auto data = toml::table{
-      {"observer",
-       toml::table{{"latitude", config.observer.latitude},
-                   {"longitude", config.observer.longitude},
-                   {"altitude", config.observer.altitude}}},
+      {"observer", toml::table{{"latitude", config.observer.latitude},
+                               {"longitude", config.observer.longitude},
+                               {"altitude", config.observer.altitude}}},
       {"catalog", toml::table{{"path", config.catalog_path}}},
       {"ephemeris", toml::table{{"path", config.ephemeris_path}}},
       {"app", toml::table{{"refresh_rate_ms", config.refresh_rate_ms}}},

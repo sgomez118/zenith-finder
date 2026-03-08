@@ -73,16 +73,16 @@ void Logger::WriteLoop() {
       std::tm tm_now;
       gmtime_s(&tm_now, &time_t);
 
-      std::string time_str = std::format(
-          "{:04}-{:02}-{:02} {:02}:{:02}:{:02}", tm_now.tm_year + 1900,
-          tm_now.tm_mon + 1, tm_now.tm_mday, tm_now.tm_hour, tm_now.tm_min,
-          tm_now.tm_sec);
+      std::string time_str =
+          std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+                      tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
+                      tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
 
       for (const auto& res : entry.results) {
-        file_ << std::format("{},{:.6f},{:.6f},{:.2f},{},{:.4f},{:.4f},{:.4f}\n",
-                             time_str, entry.obs.latitude, entry.obs.longitude,
-                             entry.obs.altitude, res.name, res.elevation,
-                             res.azimuth, res.zenith_dist);
+        file_ << std::format(
+            "{},{:.6f},{:.6f},{:.2f},{},{:.4f},{:.4f},{:.4f}\n", time_str,
+            entry.obs.latitude, entry.obs.longitude, entry.obs.altitude,
+            res.name, res.elevation, res.azimuth, res.zenith_dist);
       }
       file_.flush();
 

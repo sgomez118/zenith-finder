@@ -52,9 +52,9 @@ class AppController {
   std::shared_ptr<LocationProvider> location_provider_;
   std::shared_ptr<Logger> logger_;
   std::unique_ptr<std::thread> worker_thread_;
-  
+
   std::function<void()> refresh_callback_;
-  
+
   // Cache for engine data
   std::vector<engine::Star> catalog_;
   std::shared_ptr<t_calcephbin> ephemeris_;

@@ -63,7 +63,8 @@ ZenithUI::ZenithUI(std::shared_ptr<AppState> state)
 
   ftxui::CheckboxOption checkbox_option;
   checkbox_option.on_change = [&] { UpdateFilterFromUI(); };
-  filter_active_checkbox_ = ftxui::Checkbox("Active", &state_->filter.active, checkbox_option);
+  filter_active_checkbox_ =
+      ftxui::Checkbox("Active", &state_->filter.active, checkbox_option);
 
   filter_container_ = ftxui::Container::Vertical({
       name_input_,
@@ -74,18 +75,16 @@ ZenithUI::ZenithUI(std::shared_ptr<AppState> state)
       filter_active_checkbox_,
   });
 
-  filter_window_container_ = ftxui::Renderer(filter_container_, [&] {
-      return RenderFilterWindow();
-  });
+  filter_window_container_ =
+      ftxui::Renderer(filter_container_, [&] { return RenderFilterWindow(); });
 
   main_container_ = ftxui::Container::Vertical({
       star_menu_,
       solar_menu_,
   });
 
-  main_container_ = ftxui::Renderer(main_container_, [&] {
-      return RenderMainContent();
-  });
+  main_container_ =
+      ftxui::Renderer(main_container_, [&] { return RenderMainContent(); });
 
   tab_container_ = ftxui::Container::Tab(
       {
@@ -99,17 +98,25 @@ void ZenithUI::UpdateFilterFromUI() {
   std::lock_guard<std::mutex> lock(state_->filter_mutex);
   state_->filter.name_filter = name_filter_str_;
   try {
-    if (!min_elevation_str_.empty()) state_->filter.min_elevation = std::stof(min_elevation_str_);
-  } catch (...) {}
+    if (!min_elevation_str_.empty())
+      state_->filter.min_elevation = std::stof(min_elevation_str_);
+  } catch (...) {
+  }
   try {
-    if (!max_elevation_str_.empty()) state_->filter.max_elevation = std::stof(max_elevation_str_);
-  } catch (...) {}
+    if (!max_elevation_str_.empty())
+      state_->filter.max_elevation = std::stof(max_elevation_str_);
+  } catch (...) {
+  }
   try {
-    if (!min_azimuth_str_.empty()) state_->filter.min_azimuth = std::stof(min_azimuth_str_);
-  } catch (...) {}
+    if (!min_azimuth_str_.empty())
+      state_->filter.min_azimuth = std::stof(min_azimuth_str_);
+  } catch (...) {
+  }
   try {
-    if (!max_azimuth_str_.empty()) state_->filter.max_azimuth = std::stof(max_azimuth_str_);
-  } catch (...) {}
+    if (!max_azimuth_str_.empty())
+      state_->filter.max_azimuth = std::stof(max_azimuth_str_);
+  } catch (...) {
+  }
 }
 
 void ZenithUI::UpdateUIFromFilter() {
@@ -124,9 +131,7 @@ void ZenithUI::UpdateUIFromFilter() {
 void ZenithUI::TriggerRefresh() { screen_.Post(ftxui::Event::Custom); }
 
 void ZenithUI::Run() {
-  auto renderer = ftxui::Renderer(tab_container_, [&] {
-    return Render();
-  });
+  auto renderer = ftxui::Renderer(tab_container_, [&] { return Render(); });
 
   auto event_handler = ftxui::CatchEvent(renderer, [&](ftxui::Event event) {
     if (event == ftxui::Event::Character('q') ||
@@ -156,7 +161,8 @@ void ZenithUI::Run() {
       return false;  // Let tab_container handle events
     }
 
-    auto handle_sort = [&](engine::SortCriteria& criteria, engine::SortColumn col) {
+    auto handle_sort = [&](engine::SortCriteria& criteria,
+                           engine::SortColumn col) {
       std::lock_guard<std::mutex> lock(state_->sort_mutex);
       if (criteria.column == col) {
         criteria.ascending = !criteria.ascending;
@@ -497,10 +503,9 @@ ftxui::Element ZenithUI::RenderFilterWindow() {
          ftxui::size(ftxui::WIDTH, ftxui::GREATER_THAN, 40);
 }
 
-ftxui::Element ZenithUI::SortableHeader(const std::string& label,
-                                        engine::SortColumn col,
-                                        const engine::SortCriteria& current_sort,
-                                        int width) {
+ftxui::Element ZenithUI::SortableHeader(
+    const std::string& label, engine::SortColumn col,
+    const engine::SortCriteria& current_sort, int width) {
   std::string text = label;
   if (current_sort.column == col) {
     text += (current_sort.ascending ? " ▲" : " ▼");

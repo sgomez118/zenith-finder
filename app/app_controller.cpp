@@ -2,6 +2,7 @@
 
 #define NOMINMAX
 #include <objbase.h>
+
 #include <chrono>
 #include <iostream>
 
@@ -20,26 +21,31 @@ bool AppController::Initialize(const AppConfig& config) {
 
   // 1. Load Star Catalog
   if (config_.catalog_path.ends_with(".json")) {
-    catalog_ = engine::CatalogLoader::LoadStarDataFromJSON(config_.catalog_path);
+    catalog_ =
+        engine::CatalogLoader::LoadStarDataFromJSON(config_.catalog_path);
   } else {
-    // catalog_ = engine::CatalogLoader::LoadStarDataFromCSV(config_.catalog_path);
+    // catalog_ =
+    // engine::CatalogLoader::LoadStarDataFromCSV(config_.catalog_path);
   }
 
   if (catalog_.empty()) {
-    std::cerr << "Error: Could not load catalog from " << config_.catalog_path << std::endl;
+    std::cerr << "Error: Could not load catalog from " << config_.catalog_path
+              << std::endl;
     return false;
   }
 
   // 2. Load Ephemeris
   if (!config_.ephemeris_path.empty()) {
-    ephemeris_ = engine::CatalogLoader::LoadFromEphemeris(config_.ephemeris_path);
+    ephemeris_ =
+        engine::CatalogLoader::LoadFromEphemeris(config_.ephemeris_path);
   }
 
   // 3. Setup Location Provider
   if (config_.use_gps) {
     location_provider_ = std::make_shared<WindowsLocationProvider>();
   } else {
-    location_provider_ = std::make_shared<StaticLocationProvider>(config_.manual_location);
+    location_provider_ =
+        std::make_shared<StaticLocationProvider>(config_.manual_location);
     {
       std::lock_guard<std::mutex> lock(state_->location_mutex);
       state_->current_location = config_.manual_location;
@@ -59,7 +65,8 @@ void AppController::Start() {
     if (logger_) {
       logger_->Start();
     }
-    worker_thread_ = std::make_unique<std::thread>(&AppController::RunWorker, this);
+    worker_thread_ =
+        std::make_unique<std::thread>(&AppController::RunWorker, this);
   }
 }
 
@@ -109,8 +116,8 @@ void AppController::RunWorker() {
     }
 
     auto star_results = std::make_shared<std::vector<engine::CelestialResult>>(
-        astrometry_engine.CalculateZenithProximity(obs, engine_filter, star_sort,
-                                                   now));
+        astrometry_engine.CalculateZenithProximity(obs, engine_filter,
+                                                   star_sort, now));
     auto solar_results = std::make_shared<std::vector<engine::SolarBody>>(
         astrometry_engine.CalculateSolarSystem(obs, engine_filter, solar_sort,
                                                now));
@@ -131,7 +138,8 @@ void AppController::RunWorker() {
       refresh_callback_();
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(config_.refresh_rate_ms));
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(config_.refresh_rate_ms));
   }
 
   if (SUCCEEDED(hr)) {

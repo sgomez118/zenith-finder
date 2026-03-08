@@ -26,9 +26,8 @@ engine::Observer WindowsLocationProvider::GetLocation() {
   if (!initialized_) return last_known_obs_;
 
   ILatLongReport* pLatLongReport = nullptr;
-  HRESULT hr = location_->GetReport(IID_ILatLongReport,
-                                    reinterpret_cast<ILocationReport**>(
-                                        &pLatLongReport));
+  HRESULT hr = location_->GetReport(
+      IID_ILatLongReport, reinterpret_cast<ILocationReport**>(&pLatLongReport));
 
   if (SUCCEEDED(hr)) {
     DOUBLE latitude = 0, longitude = 0, altitude = 0;

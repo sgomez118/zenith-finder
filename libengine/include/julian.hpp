@@ -14,7 +14,8 @@ struct JulianClock;
 /**
  * @brief Represents a time point in the Julian calendar.
  *
- * This uses JulianClock, which has its epoch at JD 0.0 (4714 BC Nov 24 12:00:00 UTC).
+ * This uses JulianClock, which has its epoch at JD 0.0 (4714 BC Nov 24 12:00:00
+ * UTC).
  */
 template <class Duration>
 using JulianTime = std::chrono::time_point<JulianClock, Duration>;
