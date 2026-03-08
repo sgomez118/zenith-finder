@@ -15,31 +15,10 @@
     *   Add input fields or sliders for Magnitude range (e.g., Mag < 6.0).
     *   Add input fields for Elevation cutoff (e.g., El > 15°).
 
-## ⚙️ 2. Engine Optimization & Performance
-
-* [ ] **Predicate-Based Fetching:**
-    *   Update `AstrometryEngine::CalculateZenithProximity` to accept a `FilterCriteria` struct (Magnitude, Elevation).
-    *   Apply filters early in the calculation loop to minimize expensive coordinate transformations.
-* [ ] **Visibility Culling:**
-    *   Implement a fixed 0° elevation cutoff directly in the engine's horizontal coordinate calculation.
-    *   Discard objects below the horizon before they reach the UI results list.
-* [ ] **Memory & Loop Optimization:**
-    *   Refactor the star catalog processing to handle 50k+ entries with sub-100ms latency.
-    *   Use parallel execution (e.g., `std::execution::par`) if needed for high-density catalogs.
-
-## 🧪 3. Testing & Validation
-
-* [ ] **Performance Benchmarking:**
-    *   Create a test case for 5000 stars and measure end-to-end calculation time.
-    *   Profile the TUI refresh rate with the large catalog active.
-* [ ] **Filtering Accuracy:**
-    *   Verify that objects below 0° elevation are correctly excluded from the result set.
-    *   Validate magnitude filtering against known catalog values.
-
 ---
 
-### Suggested Team Allocation:
+*Note: Remaining tasks for Engine Optimization and Testing have been moved to [v0.5](tasks%20v0.5.md).*
+
+### Suggested Team Allocation (v0.4):
 
 * **Engineer A (TUI Expert):** Virtualized scrolling, sorting logic, and layout refactoring.
-* **Engineer B (Engine Specialist):** Predicate-based filtering, visibility culling, and loop optimization.
-* **Engineer C (Performance/QA):** Benchmarking, large catalog testing, and memory profiling.
