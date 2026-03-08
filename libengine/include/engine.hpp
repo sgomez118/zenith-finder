@@ -78,6 +78,8 @@ struct FilterCriteria {
   float max_elevation = 90.0f;
   float min_azimuth = 0.0f;
   float max_azimuth = 360.0f;
+  size_t offset = 0;
+  size_t limit = 0;  // 0 means no limit
   bool active = false;
 };
 

@@ -75,6 +75,48 @@ TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
     REQUIRE(results.empty());
   }
 
+  SECTION("Offset and Limit in engine") {
+    AstrometryEngine engine;
+    std::vector<Star> many_stars;
+    for (int i = 0; i < 10; ++i) {
+      many_stars.push_back(Star{.name = "Star " + std::to_string(i),
+                                .ra = static_cast<double>(i),
+                                .dec = 0.0});
+    }
+    engine.SetCatalog(many_stars);
+
+    FilterCriteria filter;
+    filter.active = true;
+    filter.min_elevation = -90.0f;  // Ensure all stars are "visible" for test
+
+    SECTION("Limit only") {
+      filter.limit = 5;
+      auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
+      REQUIRE(results.size() == 5);
+    }
+
+    SECTION("Offset only") {
+      filter.offset = 7;
+      auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
+      REQUIRE(results.size() == 3);
+    }
+
+    SECTION("Offset and Limit") {
+      filter.offset = 2;
+      filter.limit = 3;
+      auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
+      REQUIRE(results.size() == 3);
+      REQUIRE(results[0].name == "Star 2");
+      REQUIRE(results[2].name == "Star 4");
+    }
+
+    SECTION("Offset out of bounds") {
+      filter.offset = 20;
+      auto results = engine.CalculateZenithProximity(obs, filter, {}, now);
+      REQUIRE(results.empty());
+    }
+  }
+
   SECTION("Sorting in engine") {
     AstrometryEngine engine;
     engine.SetCatalog(mock_catalog);

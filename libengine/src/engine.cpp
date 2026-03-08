@@ -252,6 +252,19 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
         });
   }
 
+  // Apply offset and limit
+  if (filter.offset > 0 || filter.limit > 0) {
+    if (filter.offset >= results.size()) {
+      return {};
+    }
+    auto start = results.begin() + filter.offset;
+    auto end = results.end();
+    if (filter.limit > 0 && filter.limit < static_cast<size_t>(std::distance(start, results.end()))) {
+      end = start + filter.limit;
+    }
+    return std::vector<CelestialResult>(start, end);
+  }
+
   return results;
 }
 
@@ -388,6 +401,20 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
           double val_b = get_val(b);
           return sort.ascending ? (val_a < val_b) : (val_b < val_a);
         });
+  }
+
+  // Apply offset and limit
+  if (filter.offset > 0 || filter.limit > 0) {
+    if (filter.offset >= results.size()) {
+      return {};
+    }
+    auto start = results.begin() + filter.offset;
+    auto end = results.end();
+    if (filter.limit > 0 &&
+        filter.limit < static_cast<size_t>(std::distance(start, results.end()))) {
+      end = start + filter.limit;
+    }
+    return std::vector<SolarBody>(start, end);
   }
 
   return results;
