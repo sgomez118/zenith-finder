@@ -51,16 +51,82 @@ ZenithUI::ZenithUI(std::shared_ptr<AppState> state)
   star_menu_ = ftxui::Menu(&star_entries_, &star_selected_, make_menu_option());
   solar_menu_ =
       ftxui::Menu(&solar_entries_, &solar_selected_, make_menu_option());
+
+  // Filter UI Initialization
+  UpdateUIFromFilter();
+
+  name_input_ = ftxui::Input(&name_filter_str_, "Filter by name...");
+  min_elevation_input_ = ftxui::Input(&min_elevation_str_, "0.0");
+  max_elevation_input_ = ftxui::Input(&max_elevation_str_, "90.0");
+  min_azimuth_input_ = ftxui::Input(&min_azimuth_str_, "0.0");
+  max_azimuth_input_ = ftxui::Input(&max_azimuth_str_, "360.0");
+
+  ftxui::CheckboxOption checkbox_option;
+  checkbox_option.on_change = [&] { UpdateFilterFromUI(); };
+  filter_active_checkbox_ = ftxui::Checkbox("Active", &state_->filter.active, checkbox_option);
+
+  filter_container_ = ftxui::Container::Vertical({
+      name_input_,
+      min_elevation_input_,
+      max_elevation_input_,
+      min_azimuth_input_,
+      max_azimuth_input_,
+      filter_active_checkbox_,
+  });
+
+  filter_window_container_ = ftxui::Renderer(filter_container_, [&] {
+      return RenderFilterWindow();
+  });
+
+  main_container_ = ftxui::Container::Vertical({
+      star_menu_,
+      solar_menu_,
+  });
+
+  main_container_ = ftxui::Renderer(main_container_, [&] {
+      return RenderMainContent();
+  });
+
+  tab_container_ = ftxui::Container::Tab(
+      {
+          main_container_,
+          filter_window_container_,
+      },
+      &tab_index_);
+}
+
+void ZenithUI::UpdateFilterFromUI() {
+  std::lock_guard<std::mutex> lock(state_->filter_mutex);
+  state_->filter.name_filter = name_filter_str_;
+  try {
+    if (!min_elevation_str_.empty()) state_->filter.min_elevation = std::stof(min_elevation_str_);
+  } catch (...) {}
+  try {
+    if (!max_elevation_str_.empty()) state_->filter.max_elevation = std::stof(max_elevation_str_);
+  } catch (...) {}
+  try {
+    if (!min_azimuth_str_.empty()) state_->filter.min_azimuth = std::stof(min_azimuth_str_);
+  } catch (...) {}
+  try {
+    if (!max_azimuth_str_.empty()) state_->filter.max_azimuth = std::stof(max_azimuth_str_);
+  } catch (...) {}
+}
+
+void ZenithUI::UpdateUIFromFilter() {
+  std::lock_guard<std::mutex> lock(state_->filter_mutex);
+  name_filter_str_ = state_->filter.name_filter;
+  min_elevation_str_ = std::format("{:.1f}", state_->filter.min_elevation);
+  max_elevation_str_ = std::format("{:.1f}", state_->filter.max_elevation);
+  min_azimuth_str_ = std::format("{:.1f}", state_->filter.min_azimuth);
+  max_azimuth_str_ = std::format("{:.1f}", state_->filter.max_azimuth);
 }
 
 void ZenithUI::TriggerRefresh() { screen_.Post(ftxui::Event::Custom); }
 
 void ZenithUI::Run() {
-  auto container = ftxui::Container::Vertical({
-      star_menu_,
-      solar_menu_,
+  auto renderer = ftxui::Renderer(tab_container_, [&] {
+    return Render();
   });
-  auto renderer = ftxui::Renderer(container, [&] { return Render(); });
 
   auto event_handler = ftxui::CatchEvent(renderer, [&](ftxui::Event event) {
     if (event == ftxui::Event::Character('q') ||
@@ -71,9 +137,23 @@ void ZenithUI::Run() {
     }
     if (event == ftxui::Event::Character('f') ||
         event == ftxui::Event::Character('F')) {
-      std::lock_guard<std::mutex> lock(state_->filter_mutex);
-      state_->show_filter_window = !state_->show_filter_window;
+      bool showing = false;
+      {
+        std::lock_guard<std::mutex> lock(state_->filter_mutex);
+        state_->show_filter_window = !state_->show_filter_window;
+        showing = state_->show_filter_window;
+      }
+      if (showing) {
+        UpdateUIFromFilter();
+        tab_index_ = 1;
+      } else {
+        tab_index_ = 0;
+      }
       return true;
+    }
+
+    if (tab_index_ == 1) {
+      return false;  // Let tab_container handle events
     }
 
     auto handle_sort = [&](SortCriteria& criteria, SortColumn col) {
@@ -118,6 +198,21 @@ void ZenithUI::Run() {
 }
 
 ftxui::Element ZenithUI::Render() {
+  if (tab_index_ == 1) {
+    UpdateFilterFromUI();
+  }
+
+  if (tab_index_ == 1) {
+    return ftxui::dbox({
+        main_container_->Render(),
+        filter_window_container_->Render() | ftxui::clear_under | ftxui::center,
+    });
+  }
+
+  return main_container_->Render();
+}
+
+ftxui::Element ZenithUI::RenderMainContent() {
   // Fetch Data
   engine::Observer loc;
   {
@@ -136,11 +231,9 @@ ftxui::Element ZenithUI::Render() {
   }
 
   FilterCriteria filter;
-  bool show_filter = false;
   {
     std::lock_guard<std::mutex> lock(state_->filter_mutex);
     filter = state_->filter;
-    show_filter = state_->show_filter_window;
   }
 
   SortCriteria star_sort;
@@ -170,20 +263,11 @@ ftxui::Element ZenithUI::Render() {
       RenderSolar(solar, filter, solar_sort),
   });
 
-  auto main_content = ftxui::vflow({
+  return ftxui::vflow({
       stars_solar_box,
       RenderRadar(stars, solar, filter),
       RenderSidebar(loc, gps_active, time_str),
   });
-
-  if (show_filter) {
-    return ftxui::dbox({
-        main_content,
-        RenderFilterWindow() | ftxui::clear_under | ftxui::center,
-    });
-  }
-
-  return main_content;
 }
 
 ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
@@ -279,6 +363,11 @@ ftxui::Element ZenithUI::RenderStars(
 
   if (star_entries_.empty()) {
     star_entries_.push_back("No data available");
+  }
+
+  // Clamping selection
+  if (star_selected_ >= static_cast<int>(star_entries_.size())) {
+    star_selected_ = std::max(0, static_cast<int>(star_entries_.size()) - 1);
   }
 
   // Header
@@ -379,6 +468,11 @@ ftxui::Element ZenithUI::RenderSolar(
 
   if (solar_entries_.empty()) {
     solar_entries_.push_back("No data available");
+  }
+
+  // Clamping selection
+  if (solar_selected_ >= static_cast<int>(solar_entries_.size())) {
+    solar_selected_ = std::max(0, static_cast<int>(solar_entries_.size()) - 1);
   }
 
   // Header
@@ -516,37 +610,23 @@ ftxui::Element ZenithUI::RenderRadar(
 }
 
 ftxui::Element ZenithUI::RenderFilterWindow() {
-  // NOTE: This is a placeholder. A full interactive filter would require
-  // ftxui::Component for Input fields. For now, we'll display the current
-  // filter state.
-
-  FilterCriteria filter;
-  {
-    std::lock_guard<std::mutex> lock(state_->filter_mutex);
-    filter = state_->filter;
-  }
-
-  auto content = ftxui::vbox({
-      ftxui::text("Filter Settings (Press 'f' to close)"),
-      ftxui::separator(),
-      ftxui::hbox(ftxui::text("Name: "),
-                  ftxui::text(filter.name_filter.empty() ? "None"
-                                                         : filter.name_filter)),
-      ftxui::hbox(
-          ftxui::text("Elevation Range: "),
-          ftxui::text(std::format("[{:.1f}, {:.1f}]", filter.min_elevation,
-                                  filter.max_elevation))),
-      ftxui::hbox(
-          ftxui::text("Azimuth Range: "),
-          ftxui::text(std::format("[{:.1f}, {:.1f}]", filter.min_azimuth,
-                                  filter.max_azimuth))),
-      ftxui::separator(),
-      ftxui::text(std::format("Active: {}", filter.active ? "YES" : "NO")) |
-          ftxui::color(filter.active ? ftxui::Color::Green : ftxui::Color::Red),
-      ftxui::text("Interactive editing coming in v0.5") | ftxui::dim,
-  });
-
-  return ftxui::window(ftxui::text(" Filters "), content) |
+  return ftxui::window(
+             ftxui::text(" Filters "),
+             ftxui::vbox({
+                 ftxui::hbox(ftxui::text("Name:      "), name_input_->Render()),
+                 ftxui::hbox(ftxui::text("Min Elev:  "),
+                             min_elevation_input_->Render()),
+                 ftxui::hbox(ftxui::text("Max Elev:  "),
+                             max_elevation_input_->Render()),
+                 ftxui::hbox(ftxui::text("Min Azim:  "),
+                             min_azimuth_input_->Render()),
+                 ftxui::hbox(ftxui::text("Max Azim:  "),
+                             max_azimuth_input_->Render()),
+                 ftxui::separator(),
+                 filter_active_checkbox_->Render(),
+                 ftxui::separator(),
+                 ftxui::text("Press 'f' to close") | ftxui::dim | ftxui::center,
+             })) |
          ftxui::size(ftxui::WIDTH, ftxui::GREATER_THAN, 40);
 }
 

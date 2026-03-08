@@ -32,6 +32,7 @@ class ZenithUI {
   ftxui::Component solar_menu_;
 
   ftxui::Element Render();
+  ftxui::Element RenderMainContent();
 
   ftxui::Element RenderSidebar(const engine::Observer& loc, bool gps_active,
                                const std::string& time_str);
@@ -49,6 +50,30 @@ class ZenithUI {
 
   ftxui::Element SortableHeader(const std::string& label, SortColumn col,
                                 const SortCriteria& current_sort, int width);
+
+  // Filter UI Components
+  std::string name_filter_str_;
+  std::string min_elevation_str_;
+  std::string max_elevation_str_;
+  std::string min_azimuth_str_;
+  std::string max_azimuth_str_;
+
+  ftxui::Component name_input_;
+  ftxui::Component min_elevation_input_;
+  ftxui::Component max_elevation_input_;
+  ftxui::Component min_azimuth_input_;
+  ftxui::Component max_azimuth_input_;
+  ftxui::Component filter_active_checkbox_;
+  ftxui::Component filter_container_;
+  
+  // Container members for stability
+  ftxui::Component main_container_;
+  ftxui::Component filter_window_container_;
+  ftxui::Component tab_container_;
+  int tab_index_ = 0;
+
+  void UpdateFilterFromUI();
+  void UpdateUIFromFilter();
 };
 
 }  // namespace app
