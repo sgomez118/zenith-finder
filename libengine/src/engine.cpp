@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <execution>
 #include <filesystem>
 #include <format>
 #include <iostream>
@@ -167,57 +168,68 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
                            [](unsigned char c) { return std::tolower(c); });
   }
 
-  for (size_t i = 0; i < prebuilt_->stars.size(); ++i) {
+  std::vector<std::optional<CelestialResult>> all_results(prebuilt_->stars.size());
+  auto indices = std::views::iota(size_t{0}, prebuilt_->stars.size());
+
+  std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t i) {
     // Quick name filter check before expensive calculations
     if (filter.active && !filter_lower.empty()) {
       std::string name_lower = star_names_[i];
-      std::ranges::transform(name_lower, name_lower.begin(),
-                             [](unsigned char c) { return std::tolower(c); });
-      if (name_lower.find(filter_lower) == std::string::npos) continue;
+      for (auto& c : name_lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      if (name_lower.find(filter_lower) == std::string::npos) return;
     }
 
+    novas_frame frame_local = frame;
     sky_pos star_position = {0};
     double az = 0, el = 0;
 
     // Apparent coordinates in system
     auto status =
-        novas_sky_pos(&prebuilt_->stars[i], &frame, NOVAS_CIRS, &star_position);
+        novas_sky_pos(&prebuilt_->stars[i], &frame_local, NOVAS_CIRS, &star_position);
 
     if (status != 0) {
-      continue;
+      return;
     }
 
     // Get local horizontal coordinates
-    novas_app_to_hor(&frame, NOVAS_CIRS, star_position.ra, star_position.dec,
+    novas_app_to_hor(&frame_local, NOVAS_CIRS, star_position.ra, star_position.dec,
                      novas_standard_refraction, &az, &el);
 
     // Filter by elevation and azimuth
     if (filter.active) {
-      if (el < filter.min_elevation || el > filter.max_elevation) continue;
-      if (az < filter.min_azimuth || az > filter.max_azimuth) continue;
+      if (el < filter.min_elevation || el > filter.max_elevation) return;
+      if (az < filter.min_azimuth || az > filter.max_azimuth) return;
     } else {
       // Default: Filter out objects below the horizon
-      if (el < 0) continue;
+      if (el < 0) return;
     }
 
     // Determine if the star is rising by comparing to the future frame
     bool rising = false;
     if (frame_future_status == 0) {
+      novas_frame frame_future_local = frame_future;
       double az_f = 0, el_f = 0;
-      novas_app_to_hor(&frame_future, NOVAS_CIRS, star_position.ra,
+      novas_app_to_hor(&frame_future_local, NOVAS_CIRS, star_position.ra,
                        star_position.dec, novas_standard_refraction, &az_f,
                        &el_f);
       rising = (el_f > el);
     }
 
-    results.emplace_back(CelestialResult{
+    all_results[i] = CelestialResult{
         .name = star_names_[i],
         .elevation = el,
         .azimuth = az,
         .zenith_dist = 90.0 - el,
         .magnitude = magnitudes_[i],
         .is_rising = rising,
-    });
+    };
+  });
+
+  results.reserve(all_results.size());
+  for (auto& res_opt : all_results) {
+    if (res_opt) {
+      results.push_back(std::move(*res_opt));
+    }
   }
 
   // Sorting
