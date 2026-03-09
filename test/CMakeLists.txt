@@ -5,8 +5,16 @@ add_executable(unit_tests
     test_julian.cpp
 )
 
-
 target_link_libraries(unit_tests PRIVATE
+    engine
+    Catch2::Catch2WithMain
+)
+
+add_executable(benchmarks 
+    benchmark_engine.cpp
+)
+
+target_link_libraries(benchmarks PRIVATE
     engine
     Catch2::Catch2WithMain
 )
@@ -14,3 +22,4 @@ target_link_libraries(unit_tests PRIVATE
 include(CTest)
 include(Catch)
 catch_discover_tests(unit_tests)
+catch_discover_tests(benchmarks)
