@@ -28,6 +28,16 @@ constexpr double kPolarOffsetX = 104.89;
  */
 constexpr double kPolarOffsetY = 387.83;
 
+/**
+ * @brief Conversion factor from degrees to hours (15 degrees = 1 hour).
+ */
+constexpr double kDegToHours = 1.0 / 15.0;
+
+/**
+ * @brief Conversion factor from hours to degrees (1 hour = 15 degrees).
+ */
+constexpr double kHoursToDeg = 15.0;
+
 }  // namespace engine
 
 #endif  // ZENITH_FINDER_LIBENGINE_INCLUDE_CONSTANTS_HPP_

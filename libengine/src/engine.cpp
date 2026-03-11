@@ -52,8 +52,8 @@ void AstrometryEngine::SetCatalog(std::span<const Star> catalog) {
 
     // Define ICRS coordinates
     make_cat_entry(safe_name.c_str(), safe_cat.c_str(), star.catalog_id,
-                   star.ra, star.dec, star.pmra, star.pmdec, star.parallax,
-                   star.radial_velocity, &catalog_entry);
+                   star.ra * kDegToHours, star.dec, star.pmra, star.pmdec,
+                   star.parallax, star.radial_velocity, &catalog_entry);
 
     prebuilt_->star_entries.push_back(catalog_entry);
 
@@ -168,62 +168,66 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
                            [](unsigned char c) { return std::tolower(c); });
   }
 
-  std::vector<std::optional<CelestialResult>> all_results(prebuilt_->stars.size());
+  std::vector<std::optional<CelestialResult>> all_results(
+      prebuilt_->stars.size());
   auto indices = std::views::iota(size_t{0}, prebuilt_->stars.size());
 
-  std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t i) {
-    // Quick name filter check before expensive calculations
-    if (filter.active && !filter_lower.empty()) {
-      std::string name_lower = star_names_[i];
-      for (auto& c : name_lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-      if (name_lower.find(filter_lower) == std::string::npos) return;
-    }
+  std::for_each(
+      std::execution::par, indices.begin(), indices.end(), [&](size_t i) {
+        // Quick name filter check before expensive calculations
+        if (filter.active && !filter_lower.empty()) {
+          std::string name_lower = star_names_[i];
+          for (auto& c : name_lower)
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+          if (name_lower.find(filter_lower) == std::string::npos) return;
+        }
 
-    novas_frame frame_local = frame;
-    sky_pos star_position = {0};
-    double az = 0, el = 0;
+        novas_frame frame_local = frame;
+        sky_pos star_position = {0};
+        double az = 0, el = 0;
 
-    // Apparent coordinates in system
-    auto status =
-        novas_sky_pos(&prebuilt_->stars[i], &frame_local, NOVAS_CIRS, &star_position);
+        // Apparent coordinates in system
+        auto status = novas_sky_pos(&prebuilt_->stars[i], &frame_local,
+                                    NOVAS_CIRS, &star_position);
 
-    if (status != 0) {
-      return;
-    }
+        if (status != 0) {
+          return;
+        }
 
-    // Get local horizontal coordinates
-    novas_app_to_hor(&frame_local, NOVAS_CIRS, star_position.ra, star_position.dec,
-                     novas_standard_refraction, &az, &el);
+        // Get local horizontal coordinates
+        novas_app_to_hor(&frame_local, NOVAS_CIRS, star_position.ra,
+                         star_position.dec, novas_standard_refraction, &az,
+                         &el);
 
-    // Filter by elevation and azimuth
-    if (filter.active) {
-      if (el < filter.min_elevation || el > filter.max_elevation) return;
-      if (az < filter.min_azimuth || az > filter.max_azimuth) return;
-    } else {
-      // Default: Filter out objects below the horizon
-      if (el < 0) return;
-    }
+        // Filter by elevation and azimuth
+        if (filter.active) {
+          if (el < filter.min_elevation || el > filter.max_elevation) return;
+          if (az < filter.min_azimuth || az > filter.max_azimuth) return;
+        } else {
+          // Default: Filter out objects below the horizon
+          if (el < 0) return;
+        }
 
-    // Determine if the star is rising by comparing to the future frame
-    bool rising = false;
-    if (frame_future_status == 0) {
-      novas_frame frame_future_local = frame_future;
-      double az_f = 0, el_f = 0;
-      novas_app_to_hor(&frame_future_local, NOVAS_CIRS, star_position.ra,
-                       star_position.dec, novas_standard_refraction, &az_f,
-                       &el_f);
-      rising = (el_f > el);
-    }
+        // Determine if the star is rising by comparing to the future frame
+        bool rising = false;
+        if (frame_future_status == 0) {
+          novas_frame frame_future_local = frame_future;
+          double az_f = 0, el_f = 0;
+          novas_app_to_hor(&frame_future_local, NOVAS_CIRS, star_position.ra,
+                           star_position.dec, novas_standard_refraction, &az_f,
+                           &el_f);
+          rising = (el_f > el);
+        }
 
-    all_results[i] = CelestialResult{
-        .name = star_names_[i],
-        .elevation = el,
-        .azimuth = az,
-        .zenith_dist = 90.0 - el,
-        .magnitude = magnitudes_[i],
-        .is_rising = rising,
-    };
-  });
+        all_results[i] = CelestialResult{
+            .name = star_names_[i],
+            .elevation = el,
+            .azimuth = az,
+            .zenith_dist = 90.0 - el,
+            .magnitude = magnitudes_[i],
+            .is_rising = rising,
+        };
+      });
 
   results.reserve(all_results.size());
   for (auto& res_opt : all_results) {
@@ -271,7 +275,9 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
     }
     auto start = results.begin() + filter.star_offset;
     auto end = results.end();
-    if (filter.star_limit > 0 && filter.star_limit < static_cast<size_t>(std::distance(start, results.end()))) {
+    if (filter.star_limit > 0 &&
+        filter.star_limit <
+            static_cast<size_t>(std::distance(start, results.end()))) {
       end = start + filter.star_limit;
     }
     return std::vector<CelestialResult>(start, end);
@@ -423,7 +429,8 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     auto start = results.begin() + filter.solar_offset;
     auto end = results.end();
     if (filter.solar_limit > 0 &&
-        filter.solar_limit < static_cast<size_t>(std::distance(start, results.end()))) {
+        filter.solar_limit <
+            static_cast<size_t>(std::distance(start, results.end()))) {
       end = start + filter.solar_limit;
     }
     return std::vector<SolarBody>(start, end);
