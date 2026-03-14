@@ -580,7 +580,7 @@ ftxui::Element ZenithUI::RenderRadar(
               c.DrawBlockCircle(bx, by, 4, ftxui::Color::Green);
             }
             c.DrawBlockCircle(bx, by, 3, color);
-            c.DrawText(bx + 2, by + 2, body.name);
+            c.DrawText(bx + 2, by + 2, std::string(body.name));
           }
         }
       });

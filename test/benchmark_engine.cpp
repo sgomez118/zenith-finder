@@ -66,7 +66,7 @@ struct BenchResult {
     size_t allocated_kb;
 };
 
-BenchResult RunBenchmark(AstrometryEngine& engine, size_t count, const Observer& obs,
+BenchResult RunBenchmark(AstrometryEngine& engine, ResultBuffer& buffer, size_t count, const Observer& obs,
                         std::chrono::system_clock::time_point time) {
     auto catalog = GenerateMockCatalog(count);
 
@@ -80,9 +80,9 @@ BenchResult RunBenchmark(AstrometryEngine& engine, size_t count, const Observer&
     g_alloc_bytes = 0;
     g_track_allocs = true;
 
-    // Measure CalculateZenithProximity
+    // Measure CalculateZenithProximity (Buffered)
     auto start_calc = std::chrono::high_resolution_clock::now();
-    auto results = engine.CalculateZenithProximity(obs, {}, {}, time);
+    engine.CalculateZenithProximity(buffer, obs, {}, {}, time);
     auto end_calc = std::chrono::high_resolution_clock::now();
 
     g_track_allocs = false;
@@ -91,7 +91,7 @@ BenchResult RunBenchmark(AstrometryEngine& engine, size_t count, const Observer&
         .count = count,
         .set_catalog_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_set - start_set).count(),
         .calculate_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_calc - start_calc).count(),
-        .result_count = results.size(),
+        .result_count = buffer.star_results.size(),
         .allocations = g_alloc_count.load(),
         .allocated_kb = g_alloc_bytes.load() / 1024
     };
@@ -104,19 +104,20 @@ TEST_CASE("Engine Performance Benchmarking", "[.benchmark]") {
     auto now = std::chrono::system_clock::now();
 
     AstrometryEngine engine;
+    ResultBuffer buffer;
     
     // Warm up
     {
         auto warm_catalog = GenerateMockCatalog(100);
         engine.SetCatalog(warm_catalog);
-        (void)engine.CalculateZenithProximity(obs, {}, {}, now);
+        engine.CalculateZenithProximity(buffer, obs, {}, {}, now);
     }
 
     SECTION("Scaling Tests") {
         std::vector<size_t> sizes = {5000, 10000, 50000};
         
         std::cout << "\n" << std::string(80, '=') << "\n";
-        std::cout << " ENGINE PERFORMANCE BENCHMARKS\n";
+        std::cout << " ENGINE PERFORMANCE BENCHMARKS (BUFFERED OVERLOAD)\n";
         std::cout << std::string(80, '-') << "\n";
         std::cout << std::left << std::setw(10) << "Stars" 
                   << std::setw(15) << "Set (ms)" 
@@ -127,7 +128,7 @@ TEST_CASE("Engine Performance Benchmarking", "[.benchmark]") {
         std::cout << std::string(80, '-') << "\n";
 
         for (size_t size : sizes) {
-            auto res = RunBenchmark(engine, size, obs, now);
+            auto res = RunBenchmark(engine, buffer, size, obs, now);
             std::cout << std::left << std::setw(10) << res.count
                       << std::setw(15) << res.set_catalog_ms
                       << std::setw(15) << res.calculate_ms
@@ -135,6 +136,7 @@ TEST_CASE("Engine Performance Benchmarking", "[.benchmark]") {
                       << std::setw(12) << res.allocations
                       << std::setw(12) << res.allocated_kb << "\n";
         }
+        std::cout << "\n* Note: 'Memory' includes internal parallel intermediate buffers.\n";
         std::cout << std::string(80, '=') << "\n" << std::endl;
     }
 }

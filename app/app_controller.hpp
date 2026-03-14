@@ -58,6 +58,10 @@ class AppController {
   // Cache for engine data
   std::vector<engine::Star> catalog_;
   std::shared_ptr<t_calcephbin> ephemeris_;
+
+  // Optimized engine and buffers
+  engine::AstrometryEngine engine_;
+  engine::ResultBuffer result_buffer_;
 };
 
 }  // namespace app

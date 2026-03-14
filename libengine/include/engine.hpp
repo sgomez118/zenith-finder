@@ -33,7 +33,7 @@ struct Star {
 };
 
 struct CelestialResult {
-  std::string name;
+  std::string_view name;
   double elevation;
   double azimuth;
   double zenith_dist;
@@ -42,7 +42,7 @@ struct CelestialResult {
 };
 
 struct SolarBody {
-  std::string name;
+  std::string_view name;
   double elevation;
   double azimuth;
   double zenith_dist;
@@ -85,6 +85,21 @@ struct FilterCriteria {
   bool active = false;
 };
 
+struct ResultBuffer {
+  std::vector<CelestialResult> star_results;
+  std::vector<SolarBody> solar_results;
+
+  void reserve(size_t star_count, size_t solar_count) {
+    star_results.reserve(star_count);
+    solar_results.reserve(solar_count);
+  }
+
+  void clear() {
+    star_results.clear();
+    solar_results.clear();
+  }
+};
+
 class AstrometryEngine {
  public:
   AstrometryEngine();
@@ -105,11 +120,25 @@ class AstrometryEngine {
       std::chrono::system_clock::time_point time =
           std::chrono::system_clock::now()) const;
 
+  // Calculates zenith proximity into a pre-allocated buffer.
+  void CalculateZenithProximity(
+      ResultBuffer& buffer, const Observer& obs,
+      const FilterCriteria& filter = {}, const SortCriteria& sort = {},
+      std::chrono::system_clock::time_point time =
+          std::chrono::system_clock::now()) const;
+
   [[nodiscard]] std::vector<SolarBody> CalculateSolarSystem(
       const Observer& obs, const FilterCriteria& filter = {},
       const SortCriteria& sort = {},
       std::chrono::system_clock::time_point time =
           std::chrono::system_clock::now()) const;
+
+  // Calculates solar system into a pre-allocated buffer.
+  void CalculateSolarSystem(ResultBuffer& buffer, const Observer& obs,
+                            const FilterCriteria& filter = {},
+                            const SortCriteria& sort = {},
+                            std::chrono::system_clock::time_point time =
+                                std::chrono::system_clock::now()) const;
 
  private:
   // Internal helper to ensure NOVAS is initialized with the current ephemeris.

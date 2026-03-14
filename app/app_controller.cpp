@@ -54,6 +54,13 @@ bool AppController::Initialize(const AppConfig& config) {
     logger_ = std::make_shared<Logger>();
   }
 
+  // 5. Setup Engine
+  engine_.SetCatalog(catalog_);
+  if (ephemeris_) {
+    engine_.SetEphemeris(ephemeris_);
+  }
+  result_buffer_.reserve(catalog_.size(), 15);
+
   return true;
 }
 
@@ -82,12 +89,6 @@ void AppController::RunWorker() {
   // Initialize COM for this thread (Windows specific)
   HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
-  engine::AstrometryEngine astrometry_engine;
-  astrometry_engine.SetCatalog(catalog_);
-  if (ephemeris_) {
-    astrometry_engine.SetEphemeris(ephemeris_);
-  }
-
   while (state_->running) {
     auto obs = location_provider_->GetLocation();
     state_->gps_active = config_.use_gps;
@@ -112,12 +113,17 @@ void AppController::RunWorker() {
       solar_sort = state_->solar_sort;
     }
 
+    // Use persistent buffer to minimize heap churn
+    engine_.CalculateZenithProximity(result_buffer_, obs, engine_filter,
+                                    star_sort, now);
+    engine_.CalculateSolarSystem(result_buffer_, obs, engine_filter, solar_sort,
+                                 now);
+
+    // Snapshot results for the UI thread
     auto star_results = std::make_shared<std::vector<engine::CelestialResult>>(
-        astrometry_engine.CalculateZenithProximity(obs, engine_filter,
-                                                   star_sort, now));
+        result_buffer_.star_results);
     auto solar_results = std::make_shared<std::vector<engine::SolarBody>>(
-        astrometry_engine.CalculateSolarSystem(obs, engine_filter, solar_sort,
-                                               now));
+        result_buffer_.solar_results);
 
     if (logger_) {
       logger_->Log(obs, *star_results);

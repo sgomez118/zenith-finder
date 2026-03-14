@@ -119,16 +119,37 @@ void AstrometryEngine::InitializeNovas() const {
   BuildPlanetsCatalog();
 }
 
+namespace {
+bool CaseInsensitiveContains(std::string_view haystack,
+                             std::string_view needle_lower) {
+  if (needle_lower.empty()) return true;
+  auto it = std::search(
+      haystack.begin(), haystack.end(), needle_lower.begin(),
+      needle_lower.end(), [](unsigned char a, unsigned char b) {
+        return std::tolower(a) == static_cast<int>(b);
+      });
+  return it != haystack.end();
+}
+}  // namespace
+
 std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
     const Observer& obs, const FilterCriteria& filter, const SortCriteria& sort,
     std::chrono::system_clock::time_point time) const {
+  ResultBuffer buffer;
+  CalculateZenithProximity(buffer, obs, filter, sort, time);
+  return std::move(buffer.star_results);
+}
+
+void AstrometryEngine::CalculateZenithProximity(
+    ResultBuffer& buffer, const Observer& obs, const FilterCriteria& filter,
+    const SortCriteria& sort, std::chrono::system_clock::time_point time) const {
   if (!initialized_) {
     InitializeNovas();
   }
 
-  std::vector<CelestialResult> results;
+  buffer.star_results.clear();
   if (!prebuilt_ || prebuilt_->stars.empty()) {
-    return results;
+    return;
   }
 
   observer location;
@@ -149,7 +170,7 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
                        &t_spec, kPolarOffsetX, kPolarOffsetY, &frame);
 
   if (frame_status != 0) {
-    return results;  // Cannot calculate without a valid frame
+    return;
   }
 
   // Prepare a future frame to determine if objects are rising or setting
@@ -168,6 +189,9 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
                            [](unsigned char c) { return std::tolower(c); });
   }
 
+  // Use a thread-local or pre-allocated vector for intermediate results to
+  // avoid heap churn. For now, we still use a local vector but we can optimize
+  // further if needed.
   std::vector<std::optional<CelestialResult>> all_results(
       prebuilt_->stars.size());
   auto indices = std::views::iota(size_t{0}, prebuilt_->stars.size());
@@ -176,10 +200,7 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
       std::execution::par, indices.begin(), indices.end(), [&](size_t i) {
         // Quick name filter check before expensive calculations
         if (filter.active && !filter_lower.empty()) {
-          std::string name_lower = star_names_[i];
-          for (auto& c : name_lower)
-            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-          if (name_lower.find(filter_lower) == std::string::npos) return;
+          if (!CaseInsensitiveContains(star_names_[i], filter_lower)) return;
         }
 
         novas_frame frame_local = frame;
@@ -229,17 +250,17 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
         };
       });
 
-  results.reserve(all_results.size());
+  // Collect results into the provided buffer
   for (auto& res_opt : all_results) {
     if (res_opt) {
-      results.push_back(std::move(*res_opt));
+      buffer.star_results.push_back(*res_opt);
     }
   }
 
   // Sorting
   if (sort.column != SortColumn::NONE) {
     std::stable_sort(
-        results.begin(), results.end(),
+        buffer.star_results.begin(), buffer.star_results.end(),
         [&](const CelestialResult& a, const CelestialResult& b) {
           auto get_val = [&](const CelestialResult& res) {
             switch (sort.column) {
@@ -270,35 +291,48 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
 
   // Apply offset and limit
   if (filter.star_offset > 0 || filter.star_limit > 0) {
-    if (filter.star_offset >= results.size()) {
-      return {};
+    if (filter.star_offset >= buffer.star_results.size()) {
+      buffer.star_results.clear();
+      return;
     }
-    auto start = results.begin() + filter.star_offset;
-    auto end = results.end();
+    auto start = buffer.star_results.begin() + filter.star_offset;
+    auto end = buffer.star_results.end();
     if (filter.star_limit > 0 &&
         filter.star_limit <
-            static_cast<size_t>(std::distance(start, results.end()))) {
+            static_cast<size_t>(
+                std::distance(start, buffer.star_results.end()))) {
       end = start + filter.star_limit;
     }
-    return std::vector<CelestialResult>(start, end);
-  }
 
-  return results;
+    // Move the relevant slice to the front and resize
+    if (start != buffer.star_results.begin()) {
+      std::move(start, end, buffer.star_results.begin());
+    }
+    buffer.star_results.erase(
+        buffer.star_results.begin() + std::distance(start, end),
+        buffer.star_results.end());
+  }
 }
 
 std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
     const Observer& obs, const FilterCriteria& filter, const SortCriteria& sort,
     std::chrono::system_clock::time_point time) const {
+  ResultBuffer buffer;
+  CalculateSolarSystem(buffer, obs, filter, sort, time);
+  return std::move(buffer.solar_results);
+}
+
+void AstrometryEngine::CalculateSolarSystem(
+    ResultBuffer& buffer, const Observer& obs, const FilterCriteria& filter,
+    const SortCriteria& sort, std::chrono::system_clock::time_point time) const {
   if (!initialized_) {
     InitializeNovas();
   }
 
-  std::vector<SolarBody> results;
+  buffer.solar_results.clear();
   if (!prebuilt_ || prebuilt_->planets.empty()) {
-    return results;
+    return;
   }
-
-  results.reserve(prebuilt_->planets.size());
 
   observer location;
   novas_timespec t_spec;
@@ -318,7 +352,7 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
                        &t_spec, kPolarOffsetX, kPolarOffsetY, &frame);
 
   if (frame_status != 0) {
-    return results;
+    return;
   }
 
   // Prepare a future frame to determine if objects are rising or setting
@@ -340,10 +374,7 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
   for (const auto& planet_obj : prebuilt_->planets) {
     // Quick name filter check
     if (filter.active && !filter_lower.empty()) {
-      std::string name_lower = planet_obj.name;
-      std::ranges::transform(name_lower, name_lower.begin(),
-                             [](unsigned char c) { return std::tolower(c); });
-      if (name_lower.find(filter_lower) == std::string::npos) continue;
+      if (!CaseInsensitiveContains(planet_obj.name, filter_lower)) continue;
     }
 
     sky_pos planet_position = {0};
@@ -377,7 +408,7 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
       rising = (el_f > el);
     }
 
-    results.emplace_back(SolarBody{
+    buffer.solar_results.emplace_back(SolarBody{
         .name = planet_obj.name,
         .elevation = el,
         .azimuth = az,
@@ -390,7 +421,7 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
   // Sorting
   if (sort.column != SortColumn::NONE) {
     std::stable_sort(
-        results.begin(), results.end(),
+        buffer.solar_results.begin(), buffer.solar_results.end(),
         [&](const SolarBody& a, const SolarBody& b) {
           auto get_val = [&](const SolarBody& res) {
             switch (sort.column) {
@@ -423,20 +454,27 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
 
   // Apply offset and limit
   if (filter.solar_offset > 0 || filter.solar_limit > 0) {
-    if (filter.solar_offset >= results.size()) {
-      return {};
+    if (filter.solar_offset >= buffer.solar_results.size()) {
+      buffer.solar_results.clear();
+      return;
     }
-    auto start = results.begin() + filter.solar_offset;
-    auto end = results.end();
+    auto start = buffer.solar_results.begin() + filter.solar_offset;
+    auto end = buffer.solar_results.end();
     if (filter.solar_limit > 0 &&
         filter.solar_limit <
-            static_cast<size_t>(std::distance(start, results.end()))) {
+            static_cast<size_t>(
+                std::distance(start, buffer.solar_results.end()))) {
       end = start + filter.solar_limit;
     }
-    return std::vector<SolarBody>(start, end);
-  }
 
-  return results;
+    // Move the relevant slice to the front and resize
+    if (start != buffer.solar_results.begin()) {
+      std::move(start, end, buffer.solar_results.begin());
+    }
+    buffer.solar_results.erase(
+        buffer.solar_results.begin() + std::distance(start, end),
+        buffer.solar_results.end());
+  }
 }
 
 }  // namespace engine
