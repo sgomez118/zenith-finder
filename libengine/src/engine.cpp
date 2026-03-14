@@ -123,11 +123,11 @@ namespace {
 bool CaseInsensitiveContains(std::string_view haystack,
                              std::string_view needle_lower) {
   if (needle_lower.empty()) return true;
-  auto it = std::search(
-      haystack.begin(), haystack.end(), needle_lower.begin(),
-      needle_lower.end(), [](unsigned char a, unsigned char b) {
-        return std::tolower(a) == static_cast<int>(b);
-      });
+  auto it =
+      std::search(haystack.begin(), haystack.end(), needle_lower.begin(),
+                  needle_lower.end(), [](unsigned char a, unsigned char b) {
+                    return std::tolower(a) == static_cast<int>(b);
+                  });
   return it != haystack.end();
 }
 }  // namespace
@@ -142,7 +142,8 @@ std::vector<CelestialResult> AstrometryEngine::CalculateZenithProximity(
 
 void AstrometryEngine::CalculateZenithProximity(
     ResultBuffer& buffer, const Observer& obs, const FilterCriteria& filter,
-    const SortCriteria& sort, std::chrono::system_clock::time_point time) const {
+    const SortCriteria& sort,
+    std::chrono::system_clock::time_point time) const {
   if (!initialized_) {
     InitializeNovas();
   }
@@ -298,9 +299,8 @@ void AstrometryEngine::CalculateZenithProximity(
     auto start = buffer.star_results.begin() + filter.star_offset;
     auto end = buffer.star_results.end();
     if (filter.star_limit > 0 &&
-        filter.star_limit <
-            static_cast<size_t>(
-                std::distance(start, buffer.star_results.end()))) {
+        filter.star_limit < static_cast<size_t>(std::distance(
+                                start, buffer.star_results.end()))) {
       end = start + filter.star_limit;
     }
 
@@ -324,7 +324,8 @@ std::vector<SolarBody> AstrometryEngine::CalculateSolarSystem(
 
 void AstrometryEngine::CalculateSolarSystem(
     ResultBuffer& buffer, const Observer& obs, const FilterCriteria& filter,
-    const SortCriteria& sort, std::chrono::system_clock::time_point time) const {
+    const SortCriteria& sort,
+    std::chrono::system_clock::time_point time) const {
   if (!initialized_) {
     InitializeNovas();
   }
@@ -461,9 +462,8 @@ void AstrometryEngine::CalculateSolarSystem(
     auto start = buffer.solar_results.begin() + filter.solar_offset;
     auto end = buffer.solar_results.end();
     if (filter.solar_limit > 0 &&
-        filter.solar_limit <
-            static_cast<size_t>(
-                std::distance(start, buffer.solar_results.end()))) {
+        filter.solar_limit < static_cast<size_t>(std::distance(
+                                 start, buffer.solar_results.end()))) {
       end = start + filter.solar_limit;
     }
 

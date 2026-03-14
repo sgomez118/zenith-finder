@@ -115,7 +115,7 @@ void AppController::RunWorker() {
 
     // Use persistent buffer to minimize heap churn
     engine_.CalculateZenithProximity(result_buffer_, obs, engine_filter,
-                                    star_sort, now);
+                                     star_sort, now);
     engine_.CalculateSolarSystem(result_buffer_, obs, engine_filter, solar_sort,
                                  now);
 

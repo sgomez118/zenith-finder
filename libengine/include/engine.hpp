@@ -121,11 +121,11 @@ class AstrometryEngine {
           std::chrono::system_clock::now()) const;
 
   // Calculates zenith proximity into a pre-allocated buffer.
-  void CalculateZenithProximity(
-      ResultBuffer& buffer, const Observer& obs,
-      const FilterCriteria& filter = {}, const SortCriteria& sort = {},
-      std::chrono::system_clock::time_point time =
-          std::chrono::system_clock::now()) const;
+  void CalculateZenithProximity(ResultBuffer& buffer, const Observer& obs,
+                                const FilterCriteria& filter = {},
+                                const SortCriteria& sort = {},
+                                std::chrono::system_clock::time_point time =
+                                    std::chrono::system_clock::now()) const;
 
   [[nodiscard]] std::vector<SolarBody> CalculateSolarSystem(
       const Observer& obs, const FilterCriteria& filter = {},
