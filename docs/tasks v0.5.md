@@ -8,10 +8,10 @@
 * [x] **Visibility Culling:**
     *   Implement a fixed 0° elevation cutoff directly in the engine's horizontal coordinate calculation.
     *   Discard objects below the horizon before they reach the UI results list.
-* [ ] **Memory & Loop Optimization:**
+* [x] **Memory & Loop Optimization:**
     *   Refactor the star catalog processing to handle 50k+ entries with sub-100ms latency.
     *   [x] Implement backend pagination (`offset` and `limit`) to avoid passing massive vectors to the UI.
-    *   Use parallel execution (e.g., `std::execution::par`) if needed for high-density catalogs.
+    *   [x] Use parallel execution (e.g., `std::execution::par`) for high-density catalogs.
 
 ## 🖥️ 2. UI Navigation & Windowing
 
@@ -25,7 +25,7 @@
 
 ## 🧪 3. Testing & Validation
 
-* [ ] **Performance Benchmarking:**
+* [x] **Performance Benchmarking:**
     *   Create a test case for 5000 stars and measure end-to-end calculation time.
     *   Profile the TUI refresh rate with the large catalog active.
 * [x] **Filtering & Pagination Accuracy:**
