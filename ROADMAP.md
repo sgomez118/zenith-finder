@@ -19,8 +19,8 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 ---
 
-## 📊 Phase 0.4: Advanced TUI & Engine Optimization (Next)
-**Goal:** Refine the user experience for large datasets and optimize calculation performance.
+## 🎨 Phase 0.4: Advanced TUI Interface (Completed)
+**Goal:** Refine the user experience for large datasets and optimize interface responsiveness.
 
 ### Enhanced Interface
 * **Layout Swap:** Prioritize the "Zenith Star" view over the "Solar System" view for better primary tracking.
@@ -28,14 +28,20 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 * **Dynamic Sorting:** Allow users to sort by any column (Elevation, Azimuth, Magnitude).
 * **Interactive Filtering:** Add range-based filters (e.g., Magnitude < 6.0, Elevation > 15°).
 
+---
+
+## ⚡ Phase 0.5: Engine Optimization & Performance (Completed)
+**Goal:** Minimize latency and memory overhead for high-density catalogs.
+
 ### Engine Performance
 * **Visibility Culling:** Implement a fixed 0° elevation cutoff directly in the calculation loop to filter non-visible objects.
-* **Predicate-Based Fetching:** Pass filtering criteria into `CalculateZenithProximity` to avoid unnecessary coordinate transformations for objects below the horizon.
-* **Memory Optimization:** Refactor catalog management to handle high-density datasets (50k+ stars) efficiently.
+* **Predicate-Based Filtering:** Pass filtering criteria into `CalculateZenithProximity` to avoid unnecessary coordinate transformations for objects below the horizon.
+* **Hot-Path Optimization:** Implement `ResultBuffer` to reuse vector memory across frames and replace `std::string` with `std::string_view` for object names.
+* **Performance Monitoring:** Integrated real-time engine latency measurement, UI frame timing, and memory usage tracking into the sidebar.
 
 ---
 
-## 🌏 Phase 0.5: High-Precision Astrometry
+## 🌏 Phase 0.6: High-Precision Astrometry (Next)
 **Goal:** Integrate Earth Orientation Parameters (EOP) for sub-arcsecond accuracy using local data.
 
 * **IERS Bulletin Support:** Implement local file parsers for **IERS Bulletins A, B, C, and D** (`LoadIersBulletin[A-D]`) to support offline use in remote areas.
@@ -44,14 +50,14 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 
 ---
 
-## 📡 Phase 0.6: Low Earth Orbit (LEO) Tracking (Deprioritized)
+## 📡 Phase 0.7: Low Earth Orbit (LEO) Tracking (Deprioritized)
 **Goal:** Real-time tracking of satellites and the International Space Station (ISS).
 * **TLE Integration:** Support for **Two-Line Element (TLE)** sets via SGP4 algorithms.
 * **High-Velocity Logic:** Optimize the refresh loop for high-speed objects.
 
 ---
 
-## 🖥️ Phase 0.7: Graphical Interface (Future / Deprioritized)
+## 🖥️ Phase 0.8: Graphical Interface (Future / Deprioritized)
 **Goal:** Migration to a full C++/Qt desktop application.
 
 ---
@@ -59,7 +65,7 @@ Zenith Finder is a high-performance C++20 utility designed for precise local zen
 ## 🛠️ Technical Standards
 * **Language:** C++20 (utilizing `std::format`, `std::numbers`, and `<chrono>`).
 * **Standards Compliance:** Strictly follow IAU-76/80 and IAU-2000/2006 models via Supernovas.
-* **Performance:** Target sub-100ms execution for all Phase 0.1 calculations.
+* **Performance:** Target sub-10ms execution for calculations in catalogs up to 50k stars.
 
 ---
 

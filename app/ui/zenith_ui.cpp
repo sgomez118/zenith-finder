@@ -400,8 +400,9 @@ ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
 
   return ftxui::vbox({
       sidebar,
-      ftxui::text("Zenith Finder v0.4.0") | ftxui::dim | ftxui::center,
-  });
+      ftxui::text("Zenith Finder v0.5.0") | ftxui::dim | ftxui::center});
+      }
+
 }
 
 ftxui::Element ZenithUI::RenderStars(
