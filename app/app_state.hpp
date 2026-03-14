@@ -32,6 +32,12 @@ struct AppState {
   std::mutex sort_mutex;
   engine::SortCriteria star_sort{engine::SortColumn::NONE, true};
   engine::SortCriteria solar_sort{engine::SortColumn::NONE, true};
+
+  // Performance Metrics
+  std::atomic<double> engine_latency_ms{0.0};
+  std::atomic<double> ui_render_time_ms{0.0};
+  std::atomic<long long> memory_usage_kb{0};
+  std::atomic<bool> show_debug_overlay{false};
 };
 
 }  // namespace app

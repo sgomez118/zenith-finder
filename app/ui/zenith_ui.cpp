@@ -229,6 +229,12 @@ void ZenithUI::Run() {
       }
     }
 
+    if (event == ftxui::Event::Character('d') ||
+        event == ftxui::Event::Character('D')) {
+      state_->show_debug_overlay = !state_->show_debug_overlay;
+      return true;
+    }
+
     auto handle_sort = [&](engine::SortCriteria& criteria,
                            engine::SortColumn col) {
       std::lock_guard<std::mutex> lock(state_->sort_mutex);
@@ -272,18 +278,27 @@ void ZenithUI::Run() {
 }
 
 ftxui::Element ZenithUI::Render() {
+  auto start_time = std::chrono::high_resolution_clock::now();
+
   if (tab_index_ == 1) {
     UpdateFilterFromUI();
   }
 
+  ftxui::Element element;
   if (tab_index_ == 1) {
-    return ftxui::dbox({
+    element = ftxui::dbox({
         main_container_->Render(),
         filter_window_container_->Render() | ftxui::clear_under | ftxui::center,
     });
+  } else {
+    element = main_container_->Render();
   }
 
-  return main_container_->Render();
+  auto end_time = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> duration = end_time - start_time;
+  state_->ui_render_time_ms = duration.count();
+
+  return element;
 }
 
 ftxui::Element ZenithUI::RenderMainContent() {
@@ -347,50 +362,78 @@ ftxui::Element ZenithUI::RenderMainContent() {
 ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
                                        bool gps_active,
                                        const std::string& time_str) {
-  return ftxui::vbox(
-      {ftxui::window(
-           ftxui::text(" Status "),
-           ftxui::vbox({
-               ftxui::text(
-                   std::format("GPS: {}", gps_active ? "Active" : "Manual")) |
-                   (gps_active ? ftxui::color(ftxui::Color::Green)
-                               : ftxui::color(ftxui::Color::Yellow)),
-               ftxui::text(std::format("Log: {}",
-                                       state_->logging_enabled ? "On" : "Off")),
-               ftxui::text("Time: " + time_str),
-           })),
-       ftxui::window(
-           ftxui::text(" Location "),
-           ftxui::vbox({
-               ftxui::text(std::format("Lat: {:.4f} N", loc.latitude)),
-               ftxui::text(std::format("Lon: {:.4f} E", loc.longitude)),
-               ftxui::text(std::format("Alt: {:.1f} m", loc.altitude)),
-           })),
-       ftxui::text("Zenith Finder v0.4.0") | ftxui::dim | ftxui::center});
+  auto status_box = ftxui::vbox({
+      ftxui::text(std::format("GPS: {}", gps_active ? "Active" : "Manual")) |
+          (gps_active ? ftxui::color(ftxui::Color::Green)
+                      : ftxui::color(ftxui::Color::Yellow)),
+      ftxui::text(
+          std::format("Log: {}", state_->logging_enabled ? "On" : "Off")),
+      ftxui::text("Time: " + time_str),
+  });
+
+  auto location_box = ftxui::vbox({
+      ftxui::text(std::format("Lat: {:.4f} N", loc.latitude)),
+      ftxui::text(std::format("Lon: {:.4f} E", loc.longitude)),
+      ftxui::text(std::format("Alt: {:.1f} m", loc.altitude)),
+  });
+
+  auto sidebar = ftxui::vbox({
+      ftxui::window(ftxui::text(" Status "), status_box),
+      ftxui::window(ftxui::text(" Location "), location_box),
+  });
+
+  if (state_->show_debug_overlay) {
+    auto debug_box = ftxui::vbox({
+        ftxui::text(std::format("Engine Latency: {:.2f} ms",
+                                state_->engine_latency_ms.load())),
+        ftxui::text(std::format("UI Render Time: {:.2f} ms",
+                                state_->ui_render_time_ms.load())),
+        ftxui::text(std::format("Memory Usage:   {} KB",
+                                state_->memory_usage_kb.load())),
+    });
+    sidebar = ftxui::vbox({
+        sidebar,
+        ftxui::window(ftxui::text(" Performance "), debug_box) |
+            ftxui::color(ftxui::Color::Cyan),
+    });
+  }
+
+  return ftxui::vbox({
+      sidebar,
+      ftxui::text("Zenith Finder v0.4.0") | ftxui::dim | ftxui::center,
+  });
 }
 
 ftxui::Element ZenithUI::RenderStars(
     const std::shared_ptr<std::vector<engine::CelestialResult>>& stars,
     const engine::FilterCriteria& filter, const engine::SortCriteria& sort) {
-  star_entries_.clear();
-  std::vector<engine::CelestialResult> results;
+  bool data_changed = (stars != last_stars_) ||
+                      (sort.column != last_star_sort_.column) ||
+                      (sort.ascending != last_star_sort_.ascending) ||
+                      (filter.active != last_filter_.active) ||
+                      (filter.name_filter != last_filter_.name_filter);
 
-  if (stars) {
-    results = *stars;
-  }
+  if (data_changed) {
+    star_entries_.clear();
+    if (stars) {
+      for (const auto& star : *stars) {
+        std::string state_text = star.is_rising ? "Rising" : "Setting";
+        std::string state_icon = star.is_rising ? std::string(ui::kIconRising)
+                                                : std::string(ui::kIconSetting);
+        star_entries_.push_back(
+            std::format("{:<15} | {:>11.5f} | {:>9.5f} | {:>11.3f} | {} {}",
+                        star.name, star.elevation, star.azimuth, star.magnitude,
+                        state_icon, state_text));
+      }
+    }
 
-  // Populate menu entries
-  for (const auto& star : results) {
-    std::string state_text = star.is_rising ? "Rising" : "Setting";
-    std::string state_icon = star.is_rising ? std::string(ui::kIconRising)
-                                            : std::string(ui::kIconSetting);
-    star_entries_.push_back(std::format(
-        "{:<15} | {:>11.5f} | {:>9.5f} | {:>11.3f} | {} {}", star.name,
-        star.elevation, star.azimuth, star.magnitude, state_icon, state_text));
-  }
+    if (star_entries_.empty()) {
+      star_entries_.push_back("No data available");
+    }
 
-  if (star_entries_.empty()) {
-    star_entries_.push_back("No data available");
+    last_stars_ = stars;
+    last_star_sort_ = sort;
+    last_filter_ = filter;
   }
 
   // Clamping selection
@@ -431,26 +474,31 @@ ftxui::Element ZenithUI::RenderStars(
 ftxui::Element ZenithUI::RenderSolar(
     const std::shared_ptr<std::vector<engine::SolarBody>>& solar,
     const engine::FilterCriteria& filter, const engine::SortCriteria& sort) {
-  solar_entries_.clear();
-  std::vector<engine::SolarBody> results;
+  bool data_changed = (solar != last_solar_) ||
+                      (sort.column != last_solar_sort_.column) ||
+                      (sort.ascending != last_solar_sort_.ascending) ||
+                      (filter.active != last_filter_.active);
 
-  if (solar) {
-    results = *solar;
-  }
+  if (data_changed) {
+    solar_entries_.clear();
+    if (solar) {
+      for (const auto& body : *solar) {
+        std::string state_text = body.is_rising ? "Rising" : "Setting";
+        std::string state_icon = body.is_rising ? std::string(ui::kIconRising)
+                                                : std::string(ui::kIconSetting);
+        solar_entries_.push_back(std::format(
+            "{:<15} | {:>11.5f} | {:>9.5f} | {:>8.5f} | {:>11.5f} | {} {}",
+            body.name, body.elevation, body.azimuth, body.zenith_dist,
+            body.distance_au, state_icon, state_text));
+      }
+    }
 
-  // Populate menu entries
-  for (const auto& body : results) {
-    std::string state_text = body.is_rising ? "Rising" : "Setting";
-    std::string state_icon = body.is_rising ? std::string(ui::kIconRising)
-                                            : std::string(ui::kIconSetting);
-    solar_entries_.push_back(std::format(
-        "{:<15} | {:>11.5f} | {:>9.5f} | {:>8.5f} | {:>11.5f} | {} {}",
-        body.name, body.elevation, body.azimuth, body.zenith_dist,
-        body.distance_au, state_icon, state_text));
-  }
+    if (solar_entries_.empty()) {
+      solar_entries_.push_back("No data available");
+    }
 
-  if (solar_entries_.empty()) {
-    solar_entries_.push_back("No data available");
+    last_solar_ = solar;
+    last_solar_sort_ = sort;
   }
 
   // Clamping selection

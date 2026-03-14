@@ -2,6 +2,7 @@
 
 #define NOMINMAX
 #include <objbase.h>
+#include <psapi.h>
 
 #include <chrono>
 #include <iostream>
@@ -114,10 +115,22 @@ void AppController::RunWorker() {
     }
 
     // Use persistent buffer to minimize heap churn
+    auto start_time = std::chrono::high_resolution_clock::now();
     engine_.CalculateZenithProximity(result_buffer_, obs, engine_filter,
                                      star_sort, now);
     engine_.CalculateSolarSystem(result_buffer_, obs, engine_filter, solar_sort,
                                  now);
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double, std::milli> duration = end_time - start_time;
+    state_->engine_latency_ms = duration.count();
+
+    // Track memory usage (Windows specific)
+    PROCESS_MEMORY_COUNTERS_EX pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(),
+                             (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc))) {
+      state_->memory_usage_kb = static_cast<long long>(pmc.PrivateUsage) / 1024;
+    }
 
     // Snapshot results for the UI thread
     auto star_results = std::make_shared<std::vector<engine::CelestialResult>>(

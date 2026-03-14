@@ -76,6 +76,13 @@ class ZenithUI {
 
   void UpdateFilterFromUI();
   void UpdateUIFromFilter();
+
+  // Optimization members
+  std::shared_ptr<std::vector<engine::CelestialResult>> last_stars_;
+  std::shared_ptr<std::vector<engine::SolarBody>> last_solar_;
+  engine::SortCriteria last_star_sort_;
+  engine::SortCriteria last_solar_sort_;
+  engine::FilterCriteria last_filter_;
 };
 
 }  // namespace app
