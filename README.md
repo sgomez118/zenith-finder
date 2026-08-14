@@ -39,7 +39,15 @@ path = 'stars.json'
 ### 2. Star Catalog
 The application requires a catalog of stars. You can use the provided `stars.json` or fetch fresh data from SIMBAD:
 
-#### SIMBAD ADQL Query (Recommended)
+#### Automated Fetch (Recommended)
+Run the included Python script to fetch the catalog directly into `stars.json`:
+```bash
+python3 scripts/fetch_stars.py
+# Or fetch a custom count (e.g. 1000 stars):
+# python3 scripts/fetch_stars.py -n 1000
+```
+
+#### SIMBAD ADQL Query (Manual)
 1.  Visit the [SIMBAD TAP Service](https://simbad.cds.unistra.fr/simbad-tap/).
 2.  Copy the SQL query from `scripts/top_5000.sql`.
 3.  Execute the query on the website and download the results as a **JSON** file.
@@ -48,8 +56,18 @@ The application requires a catalog of stars. You can use the provided `stars.jso
 
 ### 3. Planetary Ephemeris (Recommended)
 For high-precision tracking of all planets, you should provide a JPL binary ephemeris file (e.g., DE442, DE421, or DE405).
-1.  Download a binary ephemeris (e.g., [DE442](https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/)).
-2.  Update the `ephemeris.path` in `config.toml` to point to the file.
+
+#### Automated Download (Recommended)
+Run the included Python script to download `de442.bsp` directly into the project root:
+```bash
+python3 scripts/fetch_ephemeris.py
+# Or download a lightweight ephemeris (e.g. DE440s or DE421):
+# python3 scripts/fetch_ephemeris.py -e de440s
+```
+
+#### Manual Download
+1.  Download a binary ephemeris from [NASA JPL](https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/) (e.g., [DE442](https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/de442.bsp)).
+2.  Place the file in the project root and update the `ephemeris.path` in `config.toml`.
 
 ## Build Instructions
 
