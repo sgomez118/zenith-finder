@@ -22,4 +22,4 @@ target_link_libraries(benchmarks PRIVATE
 include(CTest)
 include(Catch)
 catch_discover_tests(unit_tests)
-catch_discover_tests(benchmarks)
+catch_discover_tests(benchmarks TEST_SPEC "[.benchmark]")
