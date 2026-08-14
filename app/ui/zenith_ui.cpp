@@ -12,6 +12,16 @@
 
 #include "ui_style.hpp"
 
+namespace {
+void SafeGmtime(const std::time_t* time_t, std::tm* tm_now) {
+#ifdef _WIN32
+  gmtime_s(tm_now, time_t);
+#else
+  gmtime_r(time_t, tm_now);
+#endif
+}
+}  // namespace
+
 namespace app {
 
 ZenithUI::ZenithUI(std::shared_ptr<AppState> state)
@@ -338,7 +348,7 @@ ftxui::Element ZenithUI::RenderMainContent() {
   if (time != std::chrono::system_clock::time_point{}) {
     auto time_t = std::chrono::system_clock::to_time_t(time);
     std::tm tm_now;
-    gmtime_s(&tm_now, &time_t);
+    SafeGmtime(&time_t, &tm_now);
     time_str =
         std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
                     tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
@@ -400,9 +410,8 @@ ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
 
   return ftxui::vbox({
       sidebar,
-      ftxui::text("Zenith Finder v0.5.0") | ftxui::dim | ftxui::center});
-      }
-
+      ftxui::text("Zenith Finder v0.5.0") | ftxui::dim | ftxui::center,
+  });
 }
 
 ftxui::Element ZenithUI::RenderStars(

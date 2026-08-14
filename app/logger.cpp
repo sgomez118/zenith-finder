@@ -9,6 +9,16 @@
 #include <thread>
 #include <vector>
 
+namespace {
+void SafeGmtime(const std::time_t* time_t, std::tm* tm_now) {
+#ifdef _WIN32
+  gmtime_s(tm_now, time_t);
+#else
+  gmtime_r(time_t, tm_now);
+#endif
+}
+}  // namespace
+
 namespace app {
 
 Logger::Logger() = default;
@@ -71,7 +81,7 @@ void Logger::WriteLoop() {
 
       auto time_t = std::chrono::system_clock::to_time_t(entry.time);
       std::tm tm_now;
-      gmtime_s(&tm_now, &time_t);
+      SafeGmtime(&time_t, &tm_now);
 
       std::string time_str =
           std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
@@ -97,7 +107,7 @@ std::string Logger::GenerateFilename() {
   auto now = std::chrono::system_clock::now();
   auto time_t = std::chrono::system_clock::to_time_t(now);
   std::tm tm_now;
-  gmtime_s(&tm_now, &time_t);
+  SafeGmtime(&time_t, &tm_now);
 
   return std::format("zenith_log_{:04}{:02}{:02}_{:02}{:02}{:02}.csv",
                      tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,

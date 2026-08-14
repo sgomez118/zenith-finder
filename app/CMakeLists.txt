@@ -1,7 +1,6 @@
 add_executable(zenith-finder 
     main.cpp
     app_controller.cpp
-    windows_location_provider.cpp
     logger.cpp
     config_manager.cpp
     ui/zenith_ui.cpp
@@ -17,7 +16,6 @@ target_link_libraries(zenith-finder PRIVATE
 )
 
 if(WIN32)
-
+    target_sources(zenith-finder PRIVATE windows_location_provider.cpp)
     target_link_libraries(zenith-finder PRIVATE LocationAPI)
-
 endif()

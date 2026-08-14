@@ -1,14 +1,19 @@
 #include "app_controller.hpp"
 
+#ifdef _WIN32
 #define NOMINMAX
 #include <objbase.h>
 #include <psapi.h>
+#include "windows_location_provider.hpp"
+#elif defined(__linux__)
+#include <fstream>
+#include <unistd.h>
+#endif
 
 #include <chrono>
 #include <iostream>
 
 #include "catalog_loader.hpp"
-#include "windows_location_provider.hpp"
 
 namespace app {
 
@@ -40,7 +45,17 @@ bool AppController::Initialize(const AppConfig& config) {
 
   // 3. Setup Location Provider
   if (config_.use_gps) {
+#ifdef _WIN32
     location_provider_ = std::make_shared<WindowsLocationProvider>();
+#else
+    std::cerr << "Warning: GPS location provider is only supported on Windows. Using manual location.\n";
+    location_provider_ =
+        std::make_shared<StaticLocationProvider>(config_.manual_location);
+    {
+      std::lock_guard<std::mutex> lock(state_->location_mutex);
+      state_->current_location = config_.manual_location;
+    }
+#endif
   } else {
     location_provider_ =
         std::make_shared<StaticLocationProvider>(config_.manual_location);
@@ -87,8 +102,10 @@ void AppController::Stop() {
 }
 
 void AppController::RunWorker() {
+#ifdef _WIN32
   // Initialize COM for this thread (Windows specific)
   HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+#endif
 
   while (state_->running) {
     auto obs = location_provider_->GetLocation();
@@ -125,12 +142,26 @@ void AppController::RunWorker() {
     std::chrono::duration<double, std::milli> duration = end_time - start_time;
     state_->engine_latency_ms = duration.count();
 
-    // Track memory usage (Windows specific)
+    // Track memory usage
+#ifdef _WIN32
     PROCESS_MEMORY_COUNTERS_EX pmc;
     if (GetProcessMemoryInfo(GetCurrentProcess(),
                              (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc))) {
       state_->memory_usage_kb = static_cast<long long>(pmc.PrivateUsage) / 1024;
     }
+#elif defined(__linux__)
+    std::ifstream status_file("/proc/self/status");
+    std::string line;
+    while (std::getline(status_file, line)) {
+      if (line.rfind("VmRSS:", 0) == 0) {
+        long long kb = 0;
+        if (sscanf(line.c_str(), "VmRSS: %lld kB", &kb) == 1) {
+          state_->memory_usage_kb = kb;
+        }
+        break;
+      }
+    }
+#endif
 
     // Snapshot results for the UI thread
     auto star_results = std::make_shared<std::vector<engine::CelestialResult>>(
@@ -158,9 +189,11 @@ void AppController::RunWorker() {
         std::chrono::milliseconds(config_.refresh_rate_ms));
   }
 
+#ifdef _WIN32
   if (SUCCEEDED(hr)) {
     CoUninitialize();
   }
+#endif
 }
 
 }  // namespace app

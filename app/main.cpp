@@ -1,8 +1,6 @@
-#define NOMINMAX
-
-#include <objbase.h>
-
 #ifdef _WIN32
+#define NOMINMAX
+#include <objbase.h>
 #include <conio.h>
 #endif
 
@@ -26,8 +24,10 @@ void SignalHandler(int) {
 }  // namespace
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
   // Initialize COM for the main thread (needed for Location API)
   HRESULT hr_com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+#endif
 
   std::signal(SIGINT, SignalHandler);
 
@@ -64,7 +64,9 @@ int main(int argc, char** argv) {
   global_controller = controller;
 
   if (!controller->Initialize(app_config)) {
+#ifdef _WIN32
     if (SUCCEEDED(hr_com)) CoUninitialize();
+#endif
     return 1;
   }
 
@@ -88,9 +90,11 @@ int main(int argc, char** argv) {
   config_file.catalog_path = app_config.catalog_path;
   app::ConfigManager::Save("config.toml", config_file);
 
+#ifdef _WIN32
   if (SUCCEEDED(hr_com)) {
     CoUninitialize();
   }
+#endif
 
   return 0;
 }
