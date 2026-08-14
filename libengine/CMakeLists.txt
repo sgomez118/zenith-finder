@@ -10,3 +10,12 @@ target_link_libraries(engine PRIVATE
     supernovas::solsys-calceph
     nlohmann_json::nlohmann_json
 )
+
+if(UNIX AND NOT APPLE)
+    find_package(TBB QUIET)
+    if(TARGET TBB::tbb)
+        target_link_libraries(engine PUBLIC TBB::tbb)
+    else()
+        target_link_libraries(engine PUBLIC tbb)
+    endif()
+endif()

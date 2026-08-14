@@ -33,12 +33,21 @@ struct JulianClock {
 
   static constexpr bool is_steady = false;
 
+  template <class Duration>
+  using from_sys_duration_t = std::conditional_t<
+      !std::is_floating_point_v<typename Duration::rep> &&
+          (Duration::period::den > 1000000),
+      std::chrono::microseconds,
+      std::common_type_t<Duration, std::chrono::hours>>;
+
+  template <class Duration>
+  using from_sys_t = JulianTime<from_sys_duration_t<Duration>>;
+
   /**
    * @brief Returns the current time as a Julian time point.
    */
   static time_point now() noexcept {
-    return std::chrono::clock_cast<JulianClock>(
-        std::chrono::system_clock::now());
+    return from_sys(std::chrono::system_clock::now());
   }
 
   /**
@@ -57,7 +66,8 @@ struct JulianClock {
    * @brief Converts a system time point to a Julian clock time point.
    */
   template <class Duration>
-  static auto from_sys(const std::chrono::sys_time<Duration>& tp) noexcept {
+  static from_sys_t<Duration> from_sys(
+      const std::chrono::sys_time<Duration>& tp) noexcept {
     using namespace std::chrono;
     auto constexpr kEpoch = EpochAsSys();
 
@@ -81,7 +91,9 @@ struct JulianClock {
    */
   template <class Duration>
   static auto to_sys(
-      const std::chrono::time_point<JulianClock, Duration>& tp) noexcept {
+      const std::chrono::time_point<JulianClock, Duration>& tp) noexcept
+      -> std::chrono::time_point<std::chrono::system_clock,
+                                 std::common_type_t<std::chrono::hours, Duration>> {
     return EpochAsSys() + tp.time_since_epoch();
   }
 };
@@ -111,8 +123,11 @@ JulianDay GetJulianDayParts(std::chrono::time_point<Clock, Duration> tp) {
   using namespace std::chrono;
 
   // Convert the Julian epoch to the target clock's timescale.
-  auto epoch_in_clock = clock_cast<Clock>(JulianClock::EpochAsSys());
-  auto duration_since_epoch = tp - epoch_in_clock;
+  // Cast to microseconds to avoid integer overflow in 64-bit nanoseconds over the 6700-year span.
+  auto tp_us = time_point_cast<microseconds>(tp);
+  auto epoch_in_clock =
+      time_point_cast<microseconds>(clock_cast<Clock>(JulianClock::EpochAsSys()));
+  auto duration_since_epoch = tp_us - epoch_in_clock;
 
   // Convert to fractional days.
   auto d = duration_cast<duration<double, days::period>>(duration_since_epoch);
