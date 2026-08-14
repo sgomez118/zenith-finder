@@ -1,7 +1,7 @@
 #ifdef _WIN32
 #define NOMINMAX
-#include <objbase.h>
 #include <conio.h>
+#include <objbase.h>
 #endif
 
 #include <CLI/CLI.hpp>

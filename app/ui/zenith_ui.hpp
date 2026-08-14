@@ -1,5 +1,5 @@
-#ifndef ZENITH_FINDER_APP_ZENITH_UI_HPP_
-#define ZENITH_FINDER_APP_ZENITH_UI_HPP_
+#ifndef ZENITH_FINDER_APP_UI_ZENITH_UI_HPP_
+#define ZENITH_FINDER_APP_UI_ZENITH_UI_HPP_
 
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
@@ -87,4 +87,4 @@ class ZenithUI {
 
 }  // namespace app
 
-#endif  // ZENITH_FINDER_APP_ZENITH_UI_HPP_
+#endif  // ZENITH_FINDER_APP_UI_ZENITH_UI_HPP_

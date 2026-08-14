@@ -1,14 +1,14 @@
 #include <atomic>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <random>
 #include <vector>
 
 #include "engine.hpp"
-
-using namespace engine;
 
 // Allocation tracking
 static std::atomic<size_t> g_alloc_count{0};
@@ -27,6 +27,7 @@ void operator delete(void* ptr) noexcept { std::free(ptr); }
 
 void operator delete(void* ptr, std::size_t size) noexcept { std::free(ptr); }
 
+namespace engine {
 namespace {
 
 std::vector<Star> GenerateMockCatalog(size_t count) {
@@ -41,7 +42,7 @@ std::vector<Star> GenerateMockCatalog(size_t count) {
   for (size_t i = 0; i < count; ++i) {
     catalog.push_back(Star{.name = "Star " + std::to_string(i),
                            .catalog = "MOCK",
-                           .catalog_id = static_cast<long>(i),
+                           .catalog_id = static_cast<int64_t>(i),
                            .ra = ra_dist(gen),
                            .dec = dec_dist(gen),
                            .pmra = 0.0,
@@ -97,8 +98,6 @@ BenchResult RunBenchmark(AstrometryEngine& engine, ResultBuffer& buffer,
       .allocated_kb = g_alloc_bytes.load() / 1024};
 }
 
-}  // namespace
-
 TEST_CASE("Engine Performance Benchmarking", "[.benchmark]") {
   Observer obs{37.7749, -122.4194, 0.0};  // San Francisco
   auto now = std::chrono::system_clock::now();
@@ -137,3 +136,6 @@ TEST_CASE("Engine Performance Benchmarking", "[.benchmark]") {
     std::cout << std::string(80, '=') << "\n" << std::endl;
   }
 }
+
+}  // namespace
+}  // namespace engine

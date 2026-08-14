@@ -4,6 +4,7 @@
 #include <calceph.h>
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -15,7 +16,7 @@ namespace engine {
 struct Star {
   std::string name;        // Name of the star
   std::string catalog;     // Catalog name
-  long catalog_id;         // Catalog ID
+  int64_t catalog_id;      // Catalog ID
   double ra;               // Right Ascension in degrees
   double dec;              // Declination in degrees
   char coo_qual;           // Coordinate quality

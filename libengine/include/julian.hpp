@@ -34,11 +34,11 @@ struct JulianClock {
   static constexpr bool is_steady = false;
 
   template <class Duration>
-  using from_sys_duration_t = std::conditional_t<
-      !std::is_floating_point_v<typename Duration::rep> &&
-          (Duration::period::den > 1000000),
-      std::chrono::microseconds,
-      std::common_type_t<Duration, std::chrono::hours>>;
+  using from_sys_duration_t =
+      std::conditional_t<!std::is_floating_point_v<typename Duration::rep> &&
+                             (Duration::period::den > 1000000),
+                         std::chrono::microseconds,
+                         std::common_type_t<Duration, std::chrono::hours>>;
 
   template <class Duration>
   using from_sys_t = JulianTime<from_sys_duration_t<Duration>>;
@@ -58,8 +58,8 @@ struct JulianClock {
    */
   static constexpr std::chrono::sys_time<std::chrono::hours>
   EpochAsSys() noexcept {
-    using namespace std::chrono;
-    return sys_days{November / 24 / -4713} + 12h;
+    return std::chrono::sys_days{std::chrono::November / 24 / -4713} +
+           std::chrono::hours{12};
   }
 
   /**
@@ -68,7 +68,6 @@ struct JulianClock {
   template <class Duration>
   static from_sys_t<Duration> from_sys(
       const std::chrono::sys_time<Duration>& tp) noexcept {
-    using namespace std::chrono;
     auto constexpr kEpoch = EpochAsSys();
 
     using Rep = typename Duration::rep;
@@ -78,10 +77,11 @@ struct JulianClock {
       // For high-precision integral durations (e.g., nanoseconds),
       // convert to microseconds to avoid overflow in the 6700-year range
       // when calculating the duration from the Julian epoch.
-      return time_point_cast<microseconds>(
-          JulianTime<microseconds>{round<microseconds>(tp - kEpoch)});
+      return std::chrono::time_point_cast<std::chrono::microseconds>(
+          JulianTime<std::chrono::microseconds>{
+              std::chrono::round<std::chrono::microseconds>(tp - kEpoch)});
     } else {
-      using D = std::common_type_t<Duration, hours>;
+      using D = std::common_type_t<Duration, std::chrono::hours>;
       return JulianTime<D>{tp - kEpoch};
     }
   }
@@ -92,8 +92,9 @@ struct JulianClock {
   template <class Duration>
   static auto to_sys(
       const std::chrono::time_point<JulianClock, Duration>& tp) noexcept
-      -> std::chrono::time_point<std::chrono::system_clock,
-                                 std::common_type_t<std::chrono::hours, Duration>> {
+      -> std::chrono::time_point<
+          std::chrono::system_clock,
+          std::common_type_t<std::chrono::hours, Duration>> {
     return EpochAsSys() + tp.time_since_epoch();
   }
 };
@@ -120,17 +121,18 @@ struct JulianDay {
  */
 template <typename Clock, typename Duration>
 JulianDay GetJulianDayParts(std::chrono::time_point<Clock, Duration> tp) {
-  using namespace std::chrono;
-
   // Convert the Julian epoch to the target clock's timescale.
-  // Cast to microseconds to avoid integer overflow in 64-bit nanoseconds over the 6700-year span.
-  auto tp_us = time_point_cast<microseconds>(tp);
-  auto epoch_in_clock =
-      time_point_cast<microseconds>(clock_cast<Clock>(JulianClock::EpochAsSys()));
+  // Cast to microseconds to avoid integer overflow in 64-bit nanoseconds over
+  // the 6700-year span.
+  auto tp_us = std::chrono::time_point_cast<std::chrono::microseconds>(tp);
+  auto epoch_in_clock = std::chrono::time_point_cast<std::chrono::microseconds>(
+      std::chrono::clock_cast<Clock>(JulianClock::EpochAsSys()));
   auto duration_since_epoch = tp_us - epoch_in_clock;
 
   // Convert to fractional days.
-  auto d = duration_cast<duration<double, days::period>>(duration_since_epoch);
+  auto d = std::chrono::duration_cast<
+      std::chrono::duration<double, std::chrono::days::period>>(
+      duration_since_epoch);
 
   double whole;
   double fract = std::modf(d.count(), &whole);

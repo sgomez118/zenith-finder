@@ -6,7 +6,8 @@
 #include "catalog_loader.hpp"
 #include "engine.hpp"
 
-using namespace engine;
+namespace engine {
+namespace {
 
 TEST_CASE("Catalog Loader JSON Parsing", "[engine][catalog]") {
   const std::string test_json_path = "test_stars.json";
@@ -59,3 +60,6 @@ TEST_CASE("Catalog Loader JSON Parsing", "[engine][catalog]") {
   CHECK(star.flux_qual == 'C');
   CHECK(!star.ids.empty());
 }
+
+}  // namespace
+}  // namespace engine

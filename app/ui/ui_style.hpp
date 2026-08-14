@@ -1,5 +1,5 @@
-#ifndef ZENITH_FINDER_APP_UI_STYLE_HPP_
-#define ZENITH_FINDER_APP_UI_STYLE_HPP_
+#ifndef ZENITH_FINDER_APP_UI_UI_STYLE_HPP_
+#define ZENITH_FINDER_APP_UI_UI_STYLE_HPP_
 
 #include <string_view>
 
@@ -27,4 +27,4 @@ constexpr std::string_view kIconSetting = "V";
 
 }  // namespace app::ui
 
-#endif  // ZENITH_FINDER_APP_UI_STYLE_HPP_
+#endif  // ZENITH_FINDER_APP_UI_UI_STYLE_HPP_

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <chrono>
@@ -5,7 +6,8 @@
 
 #include "engine.hpp"
 
-using namespace engine;
+namespace engine {
+namespace {
 
 TEST_CASE("Zenith Proximity Calculation Sanity Check", "[engine]") {
   // San Francisco coordinates
@@ -159,3 +161,6 @@ TEST_CASE("Solar System Calculation", "[engine]") {
     }
   }
 }
+
+}  // namespace
+}  // namespace engine

@@ -1,8 +1,5 @@
-#ifndef APP_LOCATION_PROVIDER_HPP_
-#define APP_LOCATION_PROVIDER_HPP_
-
-#include <atomic>
-#include <mutex>
+#ifndef ZENITH_FINDER_APP_LOCATION_PROVIDER_HPP_
+#define ZENITH_FINDER_APP_LOCATION_PROVIDER_HPP_
 
 #include "engine.hpp"
 
@@ -16,7 +13,7 @@ class LocationProvider {
 
 class StaticLocationProvider : public LocationProvider {
  public:
-  StaticLocationProvider(const engine::Observer& obs) : obs_(obs) {}
+  explicit StaticLocationProvider(const engine::Observer& obs) : obs_(obs) {}
 
   engine::Observer GetLocation() override { return obs_; }
 
@@ -26,4 +23,4 @@ class StaticLocationProvider : public LocationProvider {
 
 }  // namespace app
 
-#endif  // APP_LOCATION_PROVIDER_HPP_
+#endif  // ZENITH_FINDER_APP_LOCATION_PROVIDER_HPP_

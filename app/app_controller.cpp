@@ -4,10 +4,12 @@
 #define NOMINMAX
 #include <objbase.h>
 #include <psapi.h>
+
 #include "windows_location_provider.hpp"
 #elif defined(__linux__)
-#include <fstream>
 #include <unistd.h>
+
+#include <fstream>
 #endif
 
 #include <chrono>
@@ -48,7 +50,8 @@ bool AppController::Initialize(const AppConfig& config) {
 #ifdef _WIN32
     location_provider_ = std::make_shared<WindowsLocationProvider>();
 #else
-    std::cerr << "Warning: GPS location provider is only supported on Windows. Using manual location.\n";
+    std::cerr << "Warning: GPS location provider is only supported on Windows. "
+                 "Using manual location.\n";
     location_provider_ =
         std::make_shared<StaticLocationProvider>(config_.manual_location);
     {
@@ -146,7 +149,8 @@ void AppController::RunWorker() {
 #ifdef _WIN32
     PROCESS_MEMORY_COUNTERS_EX pmc;
     if (GetProcessMemoryInfo(GetCurrentProcess(),
-                             (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc))) {
+                             reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
+                             sizeof(pmc))) {
       state_->memory_usage_kb = static_cast<long long>(pmc.PrivateUsage) / 1024;
     }
 #elif defined(__linux__)

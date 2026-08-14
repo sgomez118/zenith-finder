@@ -3,23 +3,24 @@
 #include "../app/location_provider.hpp"
 #include "engine.hpp"
 
-using namespace engine;
+namespace app {
+namespace {
 
-class MockLocationProvider : public app::LocationProvider {
+class MockLocationProvider : public LocationProvider {
  public:
-  MockLocationProvider(Observer start) : obs_(start) {}
-  Observer GetLocation() override {
+  explicit MockLocationProvider(const engine::Observer& start) : obs_(start) {}
+  engine::Observer GetLocation() override {
     // Simulate slight eastward drift (0.001 deg per call)
     obs_.longitude += 0.001;
     return obs_;
   }
 
  private:
-  Observer obs_;
+  engine::Observer obs_;
 };
 
 TEST_CASE("Mock Location Provider", "[app]") {
-  Observer start{0.0, 0.0, 0.0};
+  engine::Observer start{0.0, 0.0, 0.0};
   MockLocationProvider mock(start);
 
   auto obs1 = mock.GetLocation();
@@ -27,3 +28,6 @@ TEST_CASE("Mock Location Provider", "[app]") {
 
   REQUIRE(obs2.longitude > obs1.longitude);
 }
+
+}  // namespace
+}  // namespace app
