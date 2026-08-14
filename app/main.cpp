@@ -12,6 +12,7 @@
 #include "app_controller.hpp"
 #include "config_manager.hpp"
 #include "ui/zenith_ui.hpp"
+#include "version.hpp"
 
 namespace {
 std::shared_ptr<app::AppController> global_controller;
@@ -33,6 +34,7 @@ int main(int argc, char** argv) {
 
   CLI::App app{
       "Zenith Finder - Identify celestial objects at your local zenith"};
+  app.set_version_flag("-v,--version", std::string(app::kVersion));
 
   auto config_file = app::ConfigManager::Load("config.toml");
 

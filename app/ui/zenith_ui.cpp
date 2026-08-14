@@ -11,6 +11,7 @@
 #include <string>
 
 #include "ui_style.hpp"
+#include "version.hpp"
 
 namespace {
 void SafeGmtime(const std::time_t* time_t, std::tm* tm_now) {
@@ -410,7 +411,8 @@ ftxui::Element ZenithUI::RenderSidebar(const engine::Observer& loc,
 
   return ftxui::vbox({
       sidebar,
-      ftxui::text("Zenith Finder v0.5.0") | ftxui::dim | ftxui::center,
+      ftxui::text(std::format("Zenith Finder v{}", kVersion)) | ftxui::dim |
+          ftxui::center,
   });
 }
 
